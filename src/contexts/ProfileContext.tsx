@@ -48,12 +48,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Extract just the interest/language names
       const interests = interestsData?.map((i: any) => i.interests?.name) || [];
       
-      // Format languages as objects with name, code, proficiency
-      const languages = languagesData?.map((l: any) => ({
+      // Format languages
+      const formattedLanguages = languagesData?.map((l: any) => ({
         name: l.languages?.name || '',
         code: l.languages?.code || '',
         proficiency: l.proficiency
-      })) || [];
+      }));
 
       // Get university name if a campus is selected
       let universityName = null;
@@ -71,7 +71,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setProfile({
         ...data,
         interests,
-        languages,
+        languages: formattedLanguages,
         university: universityName,
         is_verified: data?.is_verified || false
       });
@@ -110,16 +110,18 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Then, add new interests
         for (const interestId of interests) {
-          await db.user_interests()
-            .insert({ 
-              user_id: user.id, 
-              interest_id: interestId 
-            });
+          if (interestId) {
+            await db.user_interests()
+              .insert({ 
+                user_id: user.id, 
+                interest_id: interestId 
+              });
+          }
         }
       }
 
       // Update languages if provided
-      if (languages) {
+      if (languages && languages.length > 0) {
         // First, delete existing languages
         await db.user_languages()
           .delete()
@@ -127,7 +129,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Then, add new languages
         for (const lang of languages) {
-          if (typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
+          if (typeof lang === 'object' && lang && 'id' in lang && 'proficiency' in lang) {
             await db.user_languages()
               .insert({ 
                 user_id: user.id, 

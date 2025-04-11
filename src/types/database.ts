@@ -11,8 +11,8 @@ export type MatchType = {
   updated_at: string;
   otherUser: {
     id: string;
-    first_name: string;
-    last_name: string;
+    first_name: string | null;
+    last_name: string | null;
     avatar_url: string | null;
     university: string | null;
     student_type: string | null;
@@ -26,8 +26,8 @@ export type MatchType = {
 
 export type SuggestedMatchType = {
   id: string;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   university: string | null;
   student_type: string | null;
   bio: string | null;
@@ -46,8 +46,8 @@ export type MessageType = {
   is_read: boolean;
   created_at: string;
   sender?: {
-    first_name: string;
-    last_name: string;
+    first_name: string | null;
+    last_name: string | null;
     avatar_url: string | null;
   };
 };
@@ -59,8 +59,8 @@ export type ConversationType = {
   updated_at: string;
   otherUser: {
     id: string;
-    first_name: string;
-    last_name: string;
+    first_name: string | null;
+    last_name: string | null;
     avatar_url: string | null;
   };
   last_message?: MessageType;
@@ -130,7 +130,7 @@ export type UserLanguage = {
   proficiency: string;
 };
 
-// Add a type for database tables to use with supabase client
+// Database tables definition for use with the enhanced client
 export interface DatabaseTables {
   profiles: {
     id: string;
@@ -144,7 +144,7 @@ export interface DatabaseTables {
     student_type: 'international' | 'local' | null;
     year_of_study: number | null;
     nationality: string | null;
-    is_verified: boolean;
+    is_verified: boolean | null;
     created_at: string;
     updated_at: string;
   };

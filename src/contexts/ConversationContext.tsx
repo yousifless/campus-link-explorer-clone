@@ -41,9 +41,10 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .eq('status', 'accepted');
 
       if (matchesError) throw matchesError;
+      if (!matchesData) return;
 
       // Get conversations with match data
-      const conversationsPromises = matchesData?.map(async (match) => {
+      const conversationsPromises = matchesData.map(async (match) => {
         const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
 
         // Get other user's profile
@@ -77,9 +78,9 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           created_at: conversationData.created_at,
           updated_at: conversationData.updated_at,
           otherUser: profileData,
-          last_message: messagesData[0]
+          last_message: messagesData[0] as MessageType | undefined
         };
-      }) || [];
+      });
 
       const conversationsResults = await Promise.all(conversationsPromises);
       setConversations(conversationsResults.filter(Boolean) as ConversationType[]);
@@ -110,10 +111,16 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .order('created_at', { ascending: true });
 
       if (error) throw error;
+      if (!data) return;
 
       // Transform data to match MessageType
       const formattedMessages = data.map(msg => ({
-        ...msg,
+        id: msg.id,
+        conversation_id: msg.conversation_id,
+        sender_id: msg.sender_id,
+        content: msg.content,
+        is_read: msg.is_read,
+        created_at: msg.created_at,
         sender: msg.profiles
       })) as MessageType[];
 
