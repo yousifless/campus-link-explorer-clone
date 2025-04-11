@@ -1,330 +1,838 @@
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { useProfile } from '@/contexts/ProfileContext';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { ThumbsUp, MessageSquare, Share2, Calendar, MapPin, Briefcase, Book, Mail, Edit, User, Users, BookOpen } from 'lucide-react';
+import { 
+  UserCircle, 
+  School, 
+  BookOpen, 
+  Globe, 
+  Languages, 
+  Heart,
+  Edit,
+  Check,
+  X
+} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+const studentTypes = [
+  { label: 'International Student', value: 'international' },
+  { label: 'Local Student', value: 'local' },
+];
+
+const formSchema = z.object({
+  first_name: z.string().min(1, { message: 'First name is required' }),
+  last_name: z.string().min(1, { message: 'Last name is required' }),
+  bio: z.string().max(500, { message: 'Bio must not exceed 500 characters' }).optional(),
+  nationality: z.string().optional(),
+  year_of_study: z.string().optional(),
+  university: z.string().optional(),
+  campus: z.string().optional(),
+  major: z.string().optional(),
+  student_type: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+type University = {
+  id: string;
+  name: string;
+  location: string;
+  type: string;
+};
+
+type Campus = {
+  id: string;
+  university_id: string;
+  name: string;
+  address: string;
+};
+
+type Major = {
+  id: string;
+  name: string;
+  field_of_study: string;
+};
+
+type Language = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+type Interest = {
+  id: string;
+  name: string;
+  category: string;
+};
+
+type UserLanguage = {
+  language_id: string;
+  proficiency: string;
+};
 
 const Profile = () => {
-  const [activeTab, setActiveTab] = useState('posts');
-  
-  const profileData = {
-    name: "Jane Doe",
-    username: "janedoe",
-    major: "Computer Science",
-    year: "Junior",
-    bio: "CS student passionate about web development and AI. Looking for study partners and project collaborators.",
-    location: "University Campus, Building 5",
-    email: "jane.doe@university.edu",
-    joined: "September 2023",
-    followers: 128,
-    following: 75,
-    courses: [
-      { id: 1, code: "CS101", name: "Introduction to Programming" },
-      { id: 2, code: "CS210", name: "Data Structures" },
-      { id: 3, code: "CS310", name: "Algorithms" },
-      { id: 4, code: "MATH240", name: "Linear Algebra" }
-    ],
-    skills: ["JavaScript", "React", "Python", "Java", "Machine Learning", "UI/UX Design"],
-    posts: [
-      {
-        id: 1,
-        content: "Just submitted my project for the hackathon! Fingers crossed 🤞",
-        timestamp: "2 days ago",
-        likes: 34,
-        comments: 5
-      },
-      {
-        id: 2,
-        content: "Looking for study partners for the upcoming Algorithms exam. Anyone interested?",
-        timestamp: "1 week ago",
-        likes: 12,
-        comments: 8
+  const { profile, updateProfile, loading, fetchProfile } = useProfile();
+  const [isEditing, setIsEditing] = useState(false);
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [majors, setMajors] = useState<Major[]>([]);
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [interests, setInterests] = useState<Interest[]>([]);
+  const [selectedLanguages, setSelectedLanguages] = useState<UserLanguage[]>([]);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedUniversityId, setSelectedUniversityId] = useState<string>('');
+  const [loadingData, setLoadingData] = useState(true);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      bio: '',
+      nationality: '',
+      year_of_study: '',
+      university: '',
+      campus: '',
+      major: '',
+      student_type: '',
+    },
+  });
+
+  // Fetch reference data
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoadingData(true);
+      try {
+        // Fetch universities
+        const { data: univData, error: univError } = await supabase
+          .from('universities')
+          .select('*')
+          .order('name');
+        
+        if (univError) throw univError;
+        setUniversities(univData);
+
+        // Fetch majors
+        const { data: majorsData, error: majorsError } = await supabase
+          .from('majors')
+          .select('*')
+          .order('name');
+        
+        if (majorsError) throw majorsError;
+        setMajors(majorsData);
+
+        // Fetch languages
+        const { data: languagesData, error: languagesError } = await supabase
+          .from('languages')
+          .select('*')
+          .order('name');
+        
+        if (languagesError) throw languagesError;
+        setLanguages(languagesData);
+
+        // Fetch interests
+        const { data: interestsData, error: interestsError } = await supabase
+          .from('interests')
+          .select('*')
+          .order('name');
+        
+        if (interestsError) throw interestsError;
+        setInterests(interestsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoadingData(false);
       }
-    ],
-    activities: [
-      {
-        id: 1,
-        type: "event",
-        title: "Campus Hackathon",
-        date: "May 15-17, 2023",
-        role: "Participant"
-      },
-      {
-        id: 2,
-        type: "club",
-        title: "Coding Club",
-        role: "Member",
-        joined: "October 2023"
-      },
-      {
-        id: 3,
-        type: "project",
-        title: "AI Study Assistant",
-        role: "Developer",
-        status: "In Progress"
+    };
+
+    fetchData();
+  }, []);
+
+  // Load profile data into form
+  useEffect(() => {
+    if (profile) {
+      form.reset({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        bio: profile.bio || '',
+        nationality: profile.nationality || '',
+        year_of_study: profile.year_of_study?.toString() || '',
+        university: profile.university || '',
+        campus: profile.campus_id || '',
+        major: profile.major_id || '',
+        student_type: profile.student_type || '',
+      });
+
+      if (profile.campus_id) {
+        // Fetch the campus to get university ID
+        supabase
+          .from('campuses')
+          .select('university_id')
+          .eq('id', profile.campus_id)
+          .single()
+          .then(({ data }) => {
+            if (data?.university_id) {
+              setSelectedUniversityId(data.university_id);
+              
+              // Fetch campuses for this university
+              supabase
+                .from('campuses')
+                .select('*')
+                .eq('university_id', data.university_id)
+                .then(({ data: campusesData }) => {
+                  if (campusesData) {
+                    setCampuses(campusesData);
+                  }
+                });
+            }
+          });
       }
-    ]
+
+      // Fetch user languages
+      supabase
+        .from('user_languages')
+        .select('language_id, proficiency')
+        .eq('user_id', profile.id)
+        .then(({ data }) => {
+          if (data) {
+            setSelectedLanguages(data);
+          }
+        });
+
+      // Fetch user interests
+      supabase
+        .from('user_interests')
+        .select('interest_id')
+        .eq('user_id', profile.id)
+        .then(({ data }) => {
+          if (data) {
+            setSelectedInterests(data.map(i => i.interest_id));
+          }
+        });
+    }
+  }, [profile, form]);
+
+  // Fetch campuses when university is selected
+  useEffect(() => {
+    if (!selectedUniversityId) {
+      setCampuses([]);
+      return;
+    }
+
+    const fetchCampuses = async () => {
+      const { data, error } = await supabase
+        .from('campuses')
+        .select('*')
+        .eq('university_id', selectedUniversityId)
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching campuses:', error);
+        return;
+      }
+      
+      setCampuses(data);
+    };
+
+    fetchCampuses();
+  }, [selectedUniversityId]);
+
+  const onUniversityChange = (value: string) => {
+    setSelectedUniversityId(value);
+    form.setValue('university', value);
+    form.setValue('campus', '');
   };
 
-  return (
-    <div className="campus-container py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Profile Card */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col items-center">
-                <Avatar className="h-24 w-24 mb-4">
-                  <AvatarImage src="/placeholder.svg" alt={profileData.name} />
-                  <AvatarFallback>{profileData.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <h2 className="text-2xl font-bold">{profileData.name}</h2>
-                <p className="text-gray-600">@{profileData.username}</p>
-                <div className="flex items-center mt-1">
-                  <Badge variant="secondary" className="mr-2">
-                    {profileData.major}
-                  </Badge>
-                  <Badge variant="outline">{profileData.year}</Badge>
-                </div>
-                
-                <div className="mt-4 w-full">
-                  <Button className="w-full">Edit Profile</Button>
-                </div>
-                
-                <div className="flex justify-between w-full mt-6 pt-4 border-t">
-                  <div className="text-center">
-                    <p className="font-bold">{profileData.followers}</p>
-                    <p className="text-sm text-gray-600">Followers</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-bold">{profileData.following}</p>
-                    <p className="text-sm text-gray-600">Following</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-bold">{profileData.posts.length}</p>
-                    <p className="text-sm text-gray-600">Posts</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* About Card */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">About</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-700 mb-4">{profileData.bio}</p>
-              
-              <div className="space-y-3">
-                <div className="flex items-center text-gray-700">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  <span className="text-sm">{profileData.location}</span>
-                </div>
-                <div className="flex items-center text-gray-700">
-                  <Mail className="h-4 w-4 mr-2" />
-                  <span className="text-sm">{profileData.email}</span>
-                </div>
-                <div className="flex items-center text-gray-700">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  <span className="text-sm">Joined {profileData.joined}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Courses Card */}
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Current Courses</CardTitle>
-              <Link to="/courses" className="text-xs text-campus-blue hover:underline">
-                View All
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {profileData.courses.map(course => (
-                  <li key={course.id} className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                      <BookOpen className="h-4 w-4 text-campus-blue" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{course.code}</p>
-                      <p className="text-xs text-gray-600">{course.name}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-          
-          {/* Skills Card */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Skills</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {profileData.skills.map((skill, index) => (
-                  <Badge key={index} variant="secondary">{skill}</Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Main Content */}
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="posts" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="posts">Posts</TabsTrigger>
-              <TabsTrigger value="activities">Activities</TabsTrigger>
-              <TabsTrigger value="about">About</TabsTrigger>
-            </TabsList>
-            
-            {/* Posts Tab */}
-            <TabsContent value="posts" className="space-y-6 mt-6">
-              {profileData.posts.map(post => (
-                <Card key={post.id}>
-                  <CardContent className="p-4">
-                    <div className="flex space-x-3">
-                      <Avatar>
-                        <AvatarImage src="/placeholder.svg" alt={profileData.name} />
-                        <AvatarFallback>{profileData.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-semibold">{profileData.name}</h3>
-                        <p className="text-sm text-gray-500">{post.timestamp}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-3">
-                      <p className="text-gray-800">{post.content}</p>
-                    </div>
-                    
-                    <div className="flex justify-between items-center mt-4 pt-3 border-t">
-                      <div className="flex space-x-6">
-                        <button className="flex items-center space-x-1 text-gray-500 hover:text-blue-500">
-                          <ThumbsUp className="h-4 w-4" />
-                          <span className="text-sm">{post.likes}</span>
-                        </button>
-                        <button className="flex items-center space-x-1 text-gray-500 hover:text-blue-500">
-                          <MessageSquare className="h-4 w-4" />
-                          <span className="text-sm">{post.comments}</span>
-                        </button>
-                        <button className="flex items-center space-x-1 text-gray-500 hover:text-blue-500">
-                          <Share2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-            
-            {/* Activities Tab */}
-            <TabsContent value="activities" className="space-y-6 mt-6">
-              {profileData.activities.map(activity => (
-                <Card key={activity.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start">
-                      <div className="mr-4">
-                        {activity.type === 'event' && (
-                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <Calendar className="h-5 w-5 text-campus-blue" />
-                          </div>
-                        )}
-                        {activity.type === 'club' && (
-                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-campus-blue" />
-                          </div>
-                        )}
-                        {activity.type === 'project' && (
-                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <Book className="h-5 w-5 text-campus-blue" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <h3 className="font-semibold">{activity.title}</h3>
-                          <Badge variant="outline">{activity.type}</Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">Role: {activity.role}</p>
-                        {activity.date && <p className="text-sm text-gray-600">{activity.date}</p>}
-                        {activity.joined && <p className="text-sm text-gray-600">Joined: {activity.joined}</p>}
-                        {activity.status && <p className="text-sm text-gray-600">Status: {activity.status}</p>}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-            
-            {/* About Tab (Mobile) */}
-            <TabsContent value="about" className="space-y-6 mt-6 lg:hidden">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Bio</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>{profileData.bio}</p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Contact Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center text-gray-700">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    <span>{profileData.location}</span>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <Mail className="h-4 w-4 mr-2" />
-                    <span>{profileData.email}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Courses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {profileData.courses.map(course => (
-                      <li key={course.id}>
-                        <strong>{course.code}:</strong> {course.name}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Skills</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {profileData.skills.map((skill, index) => (
-                      <Badge key={index} variant="secondary">{skill}</Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+  const handleAddLanguage = async (languageId: string, proficiency: string) => {
+    if (selectedLanguages.some(l => l.language_id === languageId)) {
+      // Already selected, update proficiency
+      setSelectedLanguages(
+        selectedLanguages.map(l => 
+          l.language_id === languageId ? { ...l, proficiency } : l
+        )
+      );
+    } else {
+      // Add new language
+      setSelectedLanguages([
+        ...selectedLanguages,
+        { language_id: languageId, proficiency }
+      ]);
+    }
+  };
+
+  const handleRemoveLanguage = (languageId: string) => {
+    setSelectedLanguages(selectedLanguages.filter(l => l.language_id !== languageId));
+  };
+
+  const handleInterestToggle = (interestId: string) => {
+    if (selectedInterests.includes(interestId)) {
+      setSelectedInterests(selectedInterests.filter(id => id !== interestId));
+    } else {
+      setSelectedInterests([...selectedInterests, interestId]);
+    }
+  };
+
+  async function onSubmit(values: FormValues) {
+    const updates = {
+      first_name: values.first_name,
+      last_name: values.last_name,
+      bio: values.bio,
+      nationality: values.nationality,
+      year_of_study: values.year_of_study ? parseInt(values.year_of_study) : null,
+      campus_id: values.campus || null,
+      major_id: values.major || null,
+      student_type: values.student_type as 'international' | 'local' | null,
+    };
+
+    await updateProfile(updates);
+
+    // Update languages
+    await Promise.all(selectedLanguages.map(async lang => {
+      // Delete existing
+      await supabase
+        .from('user_languages')
+        .delete()
+        .eq('user_id', profile?.id)
+        .eq('language_id', lang.language_id);
+      
+      // Insert new
+      await supabase
+        .from('user_languages')
+        .insert({
+          user_id: profile?.id,
+          language_id: lang.language_id,
+          proficiency: lang.proficiency
+        });
+    }));
+
+    // Update interests
+    await supabase
+      .from('user_interests')
+      .delete()
+      .eq('user_id', profile?.id);
+    
+    if (selectedInterests.length > 0) {
+      const interestRecords = selectedInterests.map(interestId => ({
+        user_id: profile?.id,
+        interest_id: interestId
+      }));
+      
+      await supabase
+        .from('user_interests')
+        .insert(interestRecords);
+    }
+
+    await fetchProfile();
+    setIsEditing(false);
+  }
+
+  if (loading && !profile) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card className="shadow-lg">
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4 mb-2" />
+            <Skeleton className="h-4 w-1/2" />
+          </CardHeader>
+          <CardContent className="space-y-8">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <Card className="shadow-lg">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div>
+            <CardTitle className="text-2xl font-bold">Your Profile</CardTitle>
+            <CardDescription>
+              Manage your profile information
+            </CardDescription>
+          </div>
+          <Button
+            variant={isEditing ? 'outline' : 'default'}
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+          >
+            {isEditing ? (
+              <>
+                <X size={16} className="mr-1" />
+                Cancel
+              </>
+            ) : (
+              <>
+                <Edit size={16} className="mr-1" />
+                Edit Profile
+              </>
+            )}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isEditing ? (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="first_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="last_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="bio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bio</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Tell us about yourself..." 
+                          className="min-h-[120px]" 
+                          {...field} 
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="nationality"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nationality</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Japanese, American" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="student_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Student Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select student type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {studentTypes.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="university"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>University</FormLabel>
+                        <Select 
+                          onValueChange={onUniversityChange}
+                          defaultValue={field.value || ''}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select university" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {universities.map((university) => (
+                              <SelectItem key={university.id} value={university.id}>
+                                {university.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="campus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Campus</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange}
+                          defaultValue={field.value || ''}
+                          disabled={!selectedUniversityId}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select campus" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {campuses.map((campus) => (
+                              <SelectItem key={campus.id} value={campus.id}>
+                                {campus.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="major"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Major</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange}
+                          defaultValue={field.value || ''}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select major" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {majors.map((major) => (
+                              <SelectItem key={major.id} value={major.id}>
+                                {major.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="year_of_study"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Year of Study</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange}
+                          defaultValue={field.value || ''}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6].map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                Year {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Languages</h3>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {selectedLanguages.map((userLang) => {
+                        const lang = languages.find(l => l.id === userLang.language_id);
+                        if (!lang) return null;
+                        
+                        return (
+                          <Badge 
+                            key={lang.id} 
+                            variant="outline"
+                            className="flex items-center gap-1 px-3 py-1.5"
+                          >
+                            {lang.name}
+                            <span className="text-xs bg-primary/10 px-1.5 py-0.5 rounded ml-1">
+                              {userLang.proficiency}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 ml-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleRemoveLanguage(lang.id)}
+                            >
+                              <X size={12} />
+                            </Button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Select onValueChange={(value) => {}}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Add a language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {languages.map((language) => (
+                            <SelectItem 
+                              key={language.id} 
+                              value={language.id}
+                              onSelect={() => {}}
+                            >
+                              {language.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select 
+                        disabled={!languages.length} 
+                        onValueChange={(proficiency) => {
+                          const selectedLangId = document.querySelector<HTMLDivElement>('[data-radix-select-value]')?.textContent;
+                          const language = languages.find(l => l.name === selectedLangId);
+                          if (language) {
+                            handleAddLanguage(language.id, proficiency);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Proficiency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="beginner">Beginner</SelectItem>
+                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="advanced">Advanced</SelectItem>
+                          <SelectItem value="native">Native</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Interests</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {interests.map((interest) => {
+                        const isSelected = selectedInterests.includes(interest.id);
+                        return (
+                          <Badge 
+                            key={interest.id} 
+                            variant={isSelected ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => handleInterestToggle(interest.id)}
+                          >
+                            {interest.name}
+                            {isSelected && (
+                              <Check size={12} className="ml-1" />
+                            )}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsEditing(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={loading || loadingData}
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          ) : (
+            <div className="space-y-6">
+              <Tabs defaultValue="profile" className="w-full">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="profile">Profile</TabsTrigger>
+                  <TabsTrigger value="interests">Interests & Languages</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="profile">
+                  <div className="space-y-6">
+                    <div className="flex flex-col items-center text-center sm:flex-row sm:text-left sm:items-start gap-4">
+                      <div className="flex-shrink-0 w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+                        <UserCircle size={64} className="text-primary" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold">
+                          {profile?.first_name} {profile?.last_name}
+                        </h2>
+                        <p className="text-muted-foreground">
+                          {profile?.student_type === 'international' ? 'International Student' : 'Local Student'}
+                          {profile?.nationality && ` • ${profile?.nationality}`}
+                        </p>
+                        <p className="mt-2">{profile?.bio || "No bio provided."}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-medium flex items-center">
+                          <School size={18} className="mr-2 text-primary" />
+                          Education
+                        </h3>
+                        <div className="space-y-1">
+                          <p><span className="font-medium">University:</span> {profile?.university || "Not specified"}</p>
+                          <p><span className="font-medium">Major:</span> {majors.find(m => m.id === profile?.major_id)?.name || "Not specified"}</p>
+                          <p><span className="font-medium">Year:</span> {profile?.year_of_study || "Not specified"}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-medium flex items-center">
+                          <Globe size={18} className="mr-2 text-primary" />
+                          Location
+                        </h3>
+                        <div className="space-y-1">
+                          <p><span className="font-medium">Campus:</span> {campuses.find(c => c.id === profile?.campus_id)?.name || "Not specified"}</p>
+                          <p><span className="font-medium">City:</span> {universities.find(u => u.id === selectedUniversityId)?.location || "Not specified"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="interests">
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-medium flex items-center mb-3">
+                        <Languages size={18} className="mr-2 text-primary" />
+                        Languages
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedLanguages.length === 0 ? (
+                          <p className="text-muted-foreground">No languages added yet.</p>
+                        ) : (
+                          selectedLanguages.map((userLang) => {
+                            const lang = languages.find(l => l.id === userLang.language_id);
+                            if (!lang) return null;
+                            
+                            return (
+                              <Badge 
+                                key={lang.id} 
+                                variant="secondary"
+                                className="px-3 py-1.5"
+                              >
+                                {lang.name}
+                                <span className="text-xs bg-primary/10 px-1.5 py-0.5 rounded ml-1">
+                                  {userLang.proficiency}
+                                </span>
+                              </Badge>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-medium flex items-center mb-3">
+                        <Heart size={18} className="mr-2 text-primary" />
+                        Interests
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedInterests.length === 0 ? (
+                          <p className="text-muted-foreground">No interests added yet.</p>
+                        ) : (
+                          selectedInterests.map((interestId) => {
+                            const interest = interests.find(i => i.id === interestId);
+                            if (!interest) return null;
+                            
+                            return (
+                              <Badge 
+                                key={interest.id}
+                                variant="outline" 
+                                className="px-3 py-1.5"
+                              >
+                                {interest.name}
+                              </Badge>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -1,286 +1,166 @@
 
-import React, { useState } from 'react';
+import React from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/components/ui/use-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+const formSchema = z.object({
+  firstName: z.string().min(2, {
+    message: 'First name must be at least 2 characters.',
+  }),
+  lastName: z.string().min(2, {
+    message: 'Last name must be at least 2 characters.',
+  }),
+  email: z.string().email({
+    message: 'Please enter a valid university email.',
+  }),
+  password: z.string().min(8, {
+    message: 'Password must be at least 8 characters.',
+  }),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 const SignUp = () => {
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    accountType: 'student',
-  });
-  const [loading, setLoading] = useState(false);
+  const { signUp, loading } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleTabChange = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      accountType: value
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please check your passwords and try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    // This would normally be an API call to register
-    setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Registration successful!",
-        description: "Your account has been created. You can now log in.",
-      });
-      navigate('/login');
-    }, 1500);
-  };
+  async function onSubmit(values: FormValues) {
+    await signUp(values.email, values.password, {
+      firstName: values.firstName,
+      lastName: values.lastName,
+    });
+  }
 
   return (
-    <div className="min-h-screen py-12 bg-gray-50 flex items-center justify-center">
-      <div className="mx-auto w-full max-w-md">
-        <div className="flex justify-center mb-6">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 rounded-full bg-campus-blue flex items-center justify-center">
-              <span className="text-white font-bold text-lg">CL</span>
-            </div>
-            <span className="text-xl font-bold text-campus-blue">CampusLink</span>
-          </Link>
-        </div>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Create an Account</CardTitle>
-            <CardDescription className="text-center">
-              Join our campus community today
-            </CardDescription>
-          </CardHeader>
-          
-          <Tabs defaultValue="student" onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="student">Student</TabsTrigger>
-              <TabsTrigger value="faculty">Faculty</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="student">
-              <CardContent className="pt-4">
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input 
-                        id="firstName" 
-                        name="firstName" 
-                        placeholder="John" 
-                        required 
-                        value={formData.firstName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input 
-                        id="lastName" 
-                        name="lastName" 
-                        placeholder="Doe" 
-                        required 
-                        value={formData.lastName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 mb-4">
-                    <Label htmlFor="email">Email</Label>
-                    <Input 
-                      id="email" 
-                      name="email" 
-                      type="email" 
-                      placeholder="your.email@university.edu" 
-                      required 
-                      value={formData.email}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2 mb-4">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input 
-                        id="password" 
-                        name="password" 
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        required 
-                        value={formData.password}
-                        onChange={handleChange}
-                      />
-                      <button 
-                        type="button" 
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                        onClick={togglePasswordVisibility}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 mb-6">
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <Input 
-                      id="confirmPassword" 
-                      name="confirmPassword" 
-                      type={showPassword ? "text" : "password"} 
-                      placeholder="••••••••" 
-                      required 
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Creating Account..." : "Sign Up"}
-                  </Button>
-                </form>
-              </CardContent>
-            </TabsContent>
-            
-            <TabsContent value="faculty">
-              <CardContent className="pt-4">
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input 
-                        id="firstName" 
-                        name="firstName" 
-                        placeholder="John" 
-                        required 
-                        value={formData.firstName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input 
-                        id="lastName" 
-                        name="lastName" 
-                        placeholder="Doe" 
-                        required 
-                        value={formData.lastName}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 mb-4">
-                    <Label htmlFor="email">Email</Label>
-                    <Input 
-                      id="email" 
-                      name="email" 
-                      type="email" 
-                      placeholder="your.email@university.edu" 
-                      required 
-                      value={formData.email}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2 mb-4">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input 
-                        id="password" 
-                        name="password" 
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="••••••••" 
-                        required 
-                        value={formData.password}
-                        onChange={handleChange}
-                      />
-                      <button 
-                        type="button" 
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                        onClick={togglePasswordVisibility}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 mb-6">
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <Input 
-                      id="confirmPassword" 
-                      name="confirmPassword" 
-                      type={showPassword ? "text" : "password"} 
-                      placeholder="••••••••" 
-                      required 
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Creating Account..." : "Sign Up"}
-                  </Button>
-                </form>
-              </CardContent>
-            </TabsContent>
-          </Tabs>
-          
-          <CardFooter className="flex flex-col space-y-4 pt-0">
-            <div className="text-sm text-center text-gray-600">
-              By signing up, you agree to our{' '}
-              <Link to="/terms" className="text-campus-blue hover:underline">
-                Terms of Service
-              </Link>{' '}
-              and{' '}
-              <Link to="/privacy" className="text-campus-blue hover:underline">
-                Privacy Policy
-              </Link>
-            </div>
-            <div className="text-sm text-center">
-              Already have an account?{' '}
-              <Link to="/login" className="text-campus-blue hover:underline font-medium">
-                Sign in
-              </Link>
-            </div>
-          </CardFooter>
-        </Card>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4 py-12">
+      <Card className="w-full max-w-md shadow-lg">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
+          <CardDescription>
+            Enter your details below to create your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>University Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="john.doe@university.edu" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="******" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="******" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading}
+              >
+                {loading ? 'Creating account...' : 'Create account'}
+              </Button>
+            </form>
+          </Form>
+
+          <div className="mt-4 text-center text-sm">
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-primary underline underline-offset-4">
+              Sign in
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

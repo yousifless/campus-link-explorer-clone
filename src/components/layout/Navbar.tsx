@@ -1,156 +1,149 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Bell, MessageSquare } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { 
+  Home, 
+  Users, 
+  User, 
+  MessageSquare, 
+  Bell, 
+  Menu, 
+  X 
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
+  const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const toggleMenu = () => {
-    setIsOpen(!isOpen);
-  };
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const closeMenu = () => setIsMenuOpen(false);
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
+  const isActive = (path: string) => location.pathname === path;
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-  };
+  const navItems = isAuthenticated
+    ? [
+        { path: '/', label: 'Home', icon: <Home size={20} /> },
+        { path: '/feed', label: 'Discover', icon: <Users size={20} /> },
+        { path: '/matches', label: 'Matches', icon: <Users size={20} /> },
+        { path: '/chat', label: 'Messages', icon: <MessageSquare size={20} /> },
+        { 
+          path: '/notifications', 
+          label: 'Notifications', 
+          icon: <Bell size={20} />,
+          badge: unreadCount > 0 ? unreadCount : null 
+        },
+        { path: '/profile', label: 'Profile', icon: <User size={20} /> },
+      ]
+    : [
+        { path: '/', label: 'Home', icon: <Home size={20} /> },
+        { path: '/login', label: 'Login', icon: null },
+        { path: '/signup', label: 'Sign Up', icon: null },
+      ];
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 py-3">
-      <div className="campus-container">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 rounded-full bg-campus-blue flex items-center justify-center">
-                <span className="text-white font-bold text-lg">CL</span>
-              </div>
-              <span className="text-xl font-bold text-campus-blue">CampusLink</span>
-            </Link>
-          </div>
+    <header className="sticky top-0 z-40 w-full border-b bg-background">
+      <div className="container flex h-16 items-center px-4 sm:px-6">
+        <Link to="/" className="flex items-center space-x-2 mr-4" onClick={closeMenu}>
+          <span className="font-bold text-xl">CampusLink</span>
+        </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
-            <Link to="/" className="text-gray-700 hover:text-campus-blue font-medium">Home</Link>
-            <Link to="/feed" className="text-gray-700 hover:text-campus-blue font-medium">Feed</Link>
-            <Link to="/events" className="text-gray-700 hover:text-campus-blue font-medium">Events</Link>
-            <Link to="/groups" className="text-gray-700 hover:text-campus-blue font-medium">Groups</Link>
-          </div>
-
-          {/* Desktop Auth */}
-          <div className="hidden md:flex items-center space-x-4">
-            {isLoggedIn ? (
-              <div className="flex items-center space-x-4">
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <MessageSquare className="h-5 w-5" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative" size="icon">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src="/placeholder.svg" alt="Profile" />
-                        <AvatarFallback>JD</AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile">Profile</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/settings">Settings</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-3">
-                <Link to="/login">
-                  <Button variant="outline">Login</Button>
-                </Link>
-                <Link to="/signup">
-                  <Button>Sign Up</Button>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <Button variant="ghost" size="icon" onClick={toggleMenu}>
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
+        {/* Mobile menu button */}
+        <div className="flex flex-1 items-center justify-end md:hidden">
+          <Button variant="ghost" size="icon" onClick={toggleMenu}>
+            {isMenuOpen ? <X /> : <Menu />}
+          </Button>
         </div>
 
-        {/* Mobile menu */}
-        {isOpen && (
-          <div className="md:hidden pt-4 pb-2 border-t border-gray-200 animate-fade-in">
-            <div className="flex flex-col space-y-3">
-              <Link to="/" className="text-gray-700 hover:text-campus-blue font-medium py-2" onClick={toggleMenu}>
-                Home
-              </Link>
-              <Link to="/feed" className="text-gray-700 hover:text-campus-blue font-medium py-2" onClick={toggleMenu}>
-                Feed
-              </Link>
-              <Link to="/events" className="text-gray-700 hover:text-campus-blue font-medium py-2" onClick={toggleMenu}>
-                Events
-              </Link>
-              <Link to="/groups" className="text-gray-700 hover:text-campus-blue font-medium py-2" onClick={toggleMenu}>
-                Groups
-              </Link>
-              <div className="pt-3 border-t border-gray-200">
-                {isLoggedIn ? (
-                  <div className="flex flex-col space-y-3">
-                    <Link to="/profile" className="text-gray-700 hover:text-campus-blue font-medium py-2" onClick={toggleMenu}>
-                      Profile
-                    </Link>
-                    <Link to="/settings" className="text-gray-700 hover:text-campus-blue font-medium py-2" onClick={toggleMenu}>
-                      Settings
-                    </Link>
-                    <Button variant="outline" className="justify-start" onClick={handleLogout}>
-                      Logout
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col space-y-3">
-                    <Link to="/login" onClick={toggleMenu}>
-                      <Button variant="outline" className="w-full">Login</Button>
-                    </Link>
-                    <Link to="/signup" onClick={toggleMenu}>
-                      <Button className="w-full">Sign Up</Button>
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center space-x-4 lg:space-x-6 mx-6">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "flex items-center space-x-1 text-sm font-medium transition-colors hover:text-primary",
+                isActive(item.path)
+                  ? "text-primary"
+                  : "text-muted-foreground"
+              )}
+            >
+              {item.icon && <span>{item.icon}</span>}
+              <span>{item.label}</span>
+              {item.badge && (
+                <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                  {item.badge}
+                </Badge>
+              )}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Mobile nav */}
+        {isMenuOpen && (
+          <div className="fixed inset-0 top-16 z-50 bg-background md:hidden">
+            <nav className="container grid gap-y-4 px-4 py-6">
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    "flex items-center space-x-3 text-base font-medium transition-colors hover:text-primary",
+                    isActive(item.path)
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  )}
+                  onClick={closeMenu}
+                >
+                  {item.icon && <span>{item.icon}</span>}
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                      {item.badge}
+                    </Badge>
+                  )}
+                </Link>
+              ))}
+              {isAuthenticated && (
+                <Button 
+                  variant="destructive" 
+                  className="mt-4" 
+                  onClick={() => {
+                    signOut();
+                    closeMenu();
+                  }}
+                >
+                  Sign Out
+                </Button>
+              )}
+            </nav>
           </div>
         )}
+
+        <div className="hidden md:flex flex-1 items-center justify-end">
+          {isAuthenticated ? (
+            <Button variant="ghost" onClick={signOut}>
+              Sign Out
+            </Button>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <Link to="/login">
+                <Button variant="ghost">Log in</Button>
+              </Link>
+              <Link to="/signup">
+                <Button>Sign up</Button>
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
-    </nav>
+    </header>
   );
 };
 

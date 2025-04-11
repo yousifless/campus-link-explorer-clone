@@ -1,196 +1,167 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Users, Calendar, MessageSquare, Award } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { ArrowRight, Users, MessageSquare, Globe, School, BookOpen, UserCheck } from 'lucide-react';
 
 const Index = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-[calc(100vh-4rem)]">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
-        <div className="campus-container">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
-            <div className="lg:w-1/2 space-y-6 animate-fade-in">
-              <h1 className="text-4xl md:text-5xl font-bold text-campus-blue leading-tight">
-                Connect, Collaborate, and Thrive on Campus
-              </h1>
-              <p className="text-xl text-gray-700">
-                Join CampusLink to connect with fellow students, discover events, 
-                join groups, and make the most of your campus experience.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                <Link to="/signup">
-                  <Button size="lg" className="bg-campus-blue hover:bg-campus-lightBlue">
-                    Get Started <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link to="/login">
-                  <Button variant="outline" size="lg">
-                    Sign In
-                  </Button>
-                </Link>
-              </div>
+      <section className="bg-gradient-to-b from-blue-50 to-white py-16 md:py-24">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-gray-900">
+            Connect with Students in Japan
+          </h1>
+          <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-gray-600">
+            The easiest way for international and local students to make meaningful connections across universities in Japan.
+          </p>
+          {isAuthenticated ? (
+            <Link to="/feed">
+              <Button size="lg" className="font-medium text-lg px-8">
+                Discover Students <ArrowRight className="ml-2" size={20} />
+              </Button>
+            </Link>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link to="/signup">
+                <Button size="lg" className="font-medium text-lg w-full sm:w-auto px-8">
+                  Get Started <ArrowRight className="ml-2" size={20} />
+                </Button>
+              </Link>
+              <Link to="/login">
+                <Button variant="outline" size="lg" className="font-medium text-lg w-full sm:w-auto px-8">
+                  Log In
+                </Button>
+              </Link>
             </div>
-            <div className="lg:w-1/2 animate-fade-up">
-              <div className="relative rounded-xl bg-white p-2 shadow-xl">
-                <img 
-                  src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80" 
-                  alt="Students on campus" 
-                  className="rounded-lg w-full h-auto"
-                />
+          )}
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">How CampusLink Works</h2>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-blue-50 rounded-xl p-6 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <Users size={32} className="text-blue-600" />
+                </div>
               </div>
+              <h3 className="text-xl font-bold mb-2">Match With Students</h3>
+              <p className="text-gray-600">
+                Find students based on shared interests, languages, and fields of study with our smart matching algorithm.
+              </p>
+            </div>
+            
+            <div className="bg-green-50 rounded-xl p-6 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="bg-green-100 p-3 rounded-full">
+                  <MessageSquare size={32} className="text-green-600" />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Chat & Connect</h3>
+              <p className="text-gray-600">
+                Start conversations with your matches and schedule real-life coffee meetups.
+              </p>
+            </div>
+            
+            <div className="bg-purple-50 rounded-xl p-6 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="bg-purple-100 p-3 rounded-full">
+                  <Globe size={32} className="text-purple-600" />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Build Your Network</h3>
+              <p className="text-gray-600">
+                Expand your social circle and cultural understanding by meeting local and international students.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20">
-        <div className="campus-container">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-campus-blue mb-4">Everything You Need on Campus</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              CampusLink brings together all the tools and connections you need for a successful and engaging campus experience.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Feature 1 */}
-            <div className="campus-card p-6 text-center animate-fade-up">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="h-8 w-8 text-campus-blue" />
+      {/* Who It's For Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Who It's For</h2>
+          
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="bg-orange-100 p-3 rounded-full mr-4">
+                  <Globe size={24} className="text-orange-600" />
+                </div>
+                <h3 className="text-xl font-bold">International Students</h3>
               </div>
-              <h3 className="text-xl font-semibold text-campus-blue mb-2">Connect</h3>
-              <p className="text-gray-600">
-                Build your network with classmates, professors, and alumni for academic and career opportunities.
-              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start">
+                  <UserCheck size={18} className="text-green-500 mr-2 mt-1 flex-shrink-0" />
+                  <span>Connect with local students who can help you navigate Japanese culture</span>
+                </li>
+                <li className="flex items-start">
+                  <UserCheck size={18} className="text-green-500 mr-2 mt-1 flex-shrink-0" />
+                  <span>Practice your Japanese with native speakers</span>
+                </li>
+                <li className="flex items-start">
+                  <UserCheck size={18} className="text-green-500 mr-2 mt-1 flex-shrink-0" />
+                  <span>Find friends who share your interests and academic goals</span>
+                </li>
+              </ul>
             </div>
-
-            {/* Feature 2 */}
-            <div className="campus-card p-6 text-center animate-fade-up" style={{ animationDelay: '100ms' }}>
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar className="h-8 w-8 text-campus-blue" />
+            
+            <div className="bg-white rounded-xl p-6 shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="bg-blue-100 p-3 rounded-full mr-4">
+                  <School size={24} className="text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold">Local Japanese Students</h3>
               </div>
-              <h3 className="text-xl font-semibold text-campus-blue mb-2">Events</h3>
-              <p className="text-gray-600">
-                Discover and join campus events, workshops, and activities that match your interests.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="campus-card p-6 text-center animate-fade-up" style={{ animationDelay: '200ms' }}>
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MessageSquare className="h-8 w-8 text-campus-blue" />
-              </div>
-              <h3 className="text-xl font-semibold text-campus-blue mb-2">Groups</h3>
-              <p className="text-gray-600">
-                Join study groups, clubs, and communities that align with your academic and personal interests.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="campus-card p-6 text-center animate-fade-up" style={{ animationDelay: '300ms' }}>
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="h-8 w-8 text-campus-blue" />
-              </div>
-              <h3 className="text-xl font-semibold text-campus-blue mb-2">Resources</h3>
-              <p className="text-gray-600">
-                Access shared academic resources, materials, and collaboration opportunities.
-              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start">
+                  <UserCheck size={18} className="text-green-500 mr-2 mt-1 flex-shrink-0" />
+                  <span>Meet students from all over the world right on your campus</span>
+                </li>
+                <li className="flex items-start">
+                  <UserCheck size={18} className="text-green-500 mr-2 mt-1 flex-shrink-0" />
+                  <span>Practice foreign languages with native speakers</span>
+                </li>
+                <li className="flex items-start">
+                  <UserCheck size={18} className="text-green-500 mr-2 mt-1 flex-shrink-0" />
+                  <span>Gain international perspectives and build global friendships</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="bg-campus-blue py-16">
-        <div className="campus-container">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">Ready to enhance your campus experience?</h2>
-            <p className="text-xl text-blue-100 max-w-2xl mx-auto mb-8">
-              Join thousands of students already connecting and collaborating on CampusLink.
-            </p>
-            <Link to="/signup">
-              <Button size="lg" className="bg-white text-campus-blue hover:bg-gray-100">
-                Join CampusLink Today
+      <section className="py-16 bg-gradient-to-r from-blue-500 to-blue-700 text-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-6">Ready to Connect?</h2>
+          <p className="text-xl mb-8 max-w-2xl mx-auto">
+            Join thousands of students across Japan creating meaningful cross-cultural friendships.
+          </p>
+          {isAuthenticated ? (
+            <Link to="/feed">
+              <Button size="lg" variant="secondary" className="font-medium text-lg px-8">
+                Discover Students <ArrowRight className="ml-2" size={20} />
               </Button>
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="campus-container">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-campus-blue mb-4">What Students Are Saying</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Hear from students who have transformed their campus experience with CampusLink.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Testimonial 1 */}
-            <div className="campus-card p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 rounded-full bg-blue-200 mr-4">
-                  <img 
-                    src="https://randomuser.me/api/portraits/women/44.jpg" 
-                    alt="Student" 
-                    className="w-12 h-12 rounded-full"
-                  />
-                </div>
-                <div>
-                  <h4 className="font-semibold">Sarah Johnson</h4>
-                  <p className="text-sm text-gray-500">Computer Science, Junior</p>
-                </div>
-              </div>
-              <p className="text-gray-600">
-                "CampusLink helped me find my study group for algorithms class. I've made great friends and improved my grades!"
-              </p>
-            </div>
-
-            {/* Testimonial 2 */}
-            <div className="campus-card p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 rounded-full bg-blue-200 mr-4">
-                  <img 
-                    src="https://randomuser.me/api/portraits/men/32.jpg" 
-                    alt="Student" 
-                    className="w-12 h-12 rounded-full"
-                  />
-                </div>
-                <div>
-                  <h4 className="font-semibold">David Chen</h4>
-                  <p className="text-sm text-gray-500">Business, Senior</p>
-                </div>
-              </div>
-              <p className="text-gray-600">
-                "I discovered so many events and networking opportunities through CampusLink that helped me secure my internship."
-              </p>
-            </div>
-
-            {/* Testimonial 3 */}
-            <div className="campus-card p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 rounded-full bg-blue-200 mr-4">
-                  <img 
-                    src="https://randomuser.me/api/portraits/women/68.jpg" 
-                    alt="Student" 
-                    className="w-12 h-12 rounded-full"
-                  />
-                </div>
-                <div>
-                  <h4 className="font-semibold">Maya Patel</h4>
-                  <p className="text-sm text-gray-500">Biology, Freshman</p>
-                </div>
-              </div>
-              <p className="text-gray-600">
-                "As a new student, CampusLink helped me quickly connect with peers and find clubs that made me feel at home on campus."
-              </p>
-            </div>
-          </div>
+          ) : (
+            <Link to="/signup">
+              <Button size="lg" variant="secondary" className="font-medium text-lg px-8">
+                Sign Up Now <ArrowRight className="ml-2" size={20} />
+              </Button>
+            </Link>
+          )}
         </div>
       </section>
     </div>
