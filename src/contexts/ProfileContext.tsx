@@ -1,25 +1,9 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, db } from '@/integrations/supabase/enhanced-client';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
-
-export type ProfileType = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  university: string | null;
-  campus_id: string | null;
-  major_id: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  student_type: 'international' | 'local' | null;
-  year_of_study: number | null;
-  nationality: string | null;
-  is_verified: boolean;
-  interests: string[] | null;
-  languages: string[] | null;
-};
+import { ProfileType } from '@/types/database';
 
 type ProfileContextType = {
   profile: ProfileType | null;
@@ -40,42 +24,56 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(true);
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*, universities(name), majors(name)')
+      const { data, error } = await db.profiles()
+        .select('*')
         .eq('id', user.id)
         .single();
 
       if (error) throw error;
 
       // Fetch user interests
-      const { data: interestsData, error: interestsError } = await supabase
-        .from('user_interests')
+      const { data: interestsData, error: interestsError } = await db.user_interests()
         .select('interests(name)')
         .eq('user_id', user.id);
 
       if (interestsError) throw interestsError;
 
       // Fetch user languages
-      const { data: languagesData, error: languagesError } = await supabase
-        .from('user_languages')
+      const { data: languagesData, error: languagesError } = await db.user_languages()
         .select('languages(name, code), proficiency')
         .eq('user_id', user.id);
 
       if (languagesError) throw languagesError;
 
-      const interests = interestsData.map((i: any) => i.interests.name);
-      const languages = languagesData.map((l: any) => ({ 
-        name: l.languages.name, 
-        code: l.languages.code,
-        proficiency: l.proficiency 
-      }));
+      // Extract just the interest/language names
+      const interests = interestsData?.map((i: any) => i.interests?.name) || [];
+      
+      // Format languages as objects with name, code, proficiency
+      const languages = languagesData?.map((l: any) => ({
+        name: l.languages?.name,
+        code: l.languages?.code,
+        proficiency: l.proficiency
+      })) || [];
+
+      // Get university name if a campus is selected
+      let universityName = null;
+      if (data?.campus_id) {
+        const { data: campusData, error: campusError } = await db.campuses()
+          .select('universities(name)')
+          .eq('id', data.campus_id)
+          .single();
+          
+        if (!campusError && campusData) {
+          universityName = campusData.universities?.name || null;
+        }
+      }
 
       setProfile({
         ...data,
         interests,
         languages,
-        university: data.universities?.name || null
+        university: universityName,
+        is_verified: data?.is_verified || false
       });
     } catch (error: any) {
       toast({
@@ -97,8 +95,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { interests, languages, ...profileUpdates } = updates;
       
       // Update profile
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await db.profiles()
         .update(profileUpdates)
         .eq('id', user.id);
 
@@ -107,36 +104,37 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Update interests if provided
       if (interests) {
         // First, delete existing interests
-        await supabase
-          .from('user_interests')
+        await db.user_interests()
           .delete()
           .eq('user_id', user.id);
 
         // Then, add new interests
         for (const interestId of interests) {
-          await supabase
-            .from('user_interests')
-            .insert({ user_id: user.id, interest_id: interestId });
+          await db.user_interests()
+            .insert({ 
+              user_id: user.id, 
+              interest_id: interestId 
+            });
         }
       }
 
       // Update languages if provided
       if (languages) {
         // First, delete existing languages
-        await supabase
-          .from('user_languages')
+        await db.user_languages()
           .delete()
           .eq('user_id', user.id);
 
         // Then, add new languages
         for (const lang of languages) {
-          await supabase
-            .from('user_languages')
-            .insert({ 
-              user_id: user.id, 
-              language_id: lang.id,
-              proficiency: lang.proficiency 
-            });
+          if (typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
+            await db.user_languages()
+              .insert({ 
+                user_id: user.id, 
+                language_id: lang.id,
+                proficiency: lang.proficiency 
+              });
+          }
         }
       }
 
@@ -181,3 +179,5 @@ export const useProfile = () => {
   }
   return context;
 };
+
+export type { ProfileType };

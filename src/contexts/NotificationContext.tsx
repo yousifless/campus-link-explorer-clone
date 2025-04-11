@@ -1,18 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, db } from '@/integrations/supabase/enhanced-client';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
-
-export type NotificationType = {
-  id: string;
-  user_id: string;
-  type: string;
-  content: string;
-  is_read: boolean;
-  related_id: string | null;
-  created_at: string;
-};
+import { NotificationType } from '@/types/database';
 
 type NotificationContextType = {
   notifications: NotificationType[];
@@ -35,8 +26,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setLoading(true);
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('notifications')
+      const { data, error } = await db.notifications()
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -44,7 +34,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       if (error) throw error;
 
-      setNotifications(data);
+      setNotifications(data || []);
     } catch (error: any) {
       toast({
         title: "Error fetching notifications",
@@ -60,8 +50,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       if (!user) return;
 
-      const { error } = await supabase
-        .from('notifications')
+      const { error } = await db.notifications()
         .update({ is_read: true })
         .eq('id', notificationId)
         .eq('user_id', user.id);
@@ -83,8 +72,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       if (!user) return;
 
-      const { error } = await supabase
-        .from('notifications')
+      const { error } = await db.notifications()
         .update({ is_read: true })
         .eq('user_id', user.id)
         .eq('is_read', false);
@@ -166,3 +154,5 @@ export const useNotifications = () => {
   }
   return context;
 };
+
+export type { NotificationType };
