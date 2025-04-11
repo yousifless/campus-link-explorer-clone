@@ -9,5 +9,18 @@ const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // Create a strongly typed client
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-// Use the client directly for operations instead of using the db object
-// This is simpler and avoids type issues
+// Create a db object that provides helper methods for common database operations
+export const db = {
+  profiles: () => supabase.from('profiles'),
+  matches: () => supabase.from('matches'),
+  conversations: () => supabase.from('conversations'),
+  messages: () => supabase.from('messages'),
+  notifications: () => supabase.from('notifications'),
+  userInterests: () => supabase.from('user_interests'),
+  userLanguages: () => supabase.from('user_languages'),
+  universities: () => supabase.from('universities'),
+  campuses: () => supabase.from('campuses'),
+  majors: () => supabase.from('majors'),
+  interests: () => supabase.from('interests'),
+  languages: () => supabase.from('languages')
+};
