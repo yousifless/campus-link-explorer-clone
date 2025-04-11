@@ -56,10 +56,10 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const processedUser1Matches = user1Matches?.map((match) => ({
         ...match,
         otherUser: {
-          id: match.profiles.id,
-          first_name: match.profiles.first_name || '',
-          last_name: match.profiles.last_name || '',
-          avatar_url: match.profiles.avatar_url,
+          id: match.profiles?.id || '',
+          first_name: match.profiles?.first_name || '',
+          last_name: match.profiles?.last_name || '',
+          avatar_url: match.profiles?.avatar_url,
           university: null, // We can fetch additional data if needed
           student_type: null,
           major: null,
@@ -73,10 +73,10 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const processedUser2Matches = user2Matches?.map((match) => ({
         ...match,
         otherUser: {
-          id: match.profiles.id,
-          first_name: match.profiles.first_name || '',
-          last_name: match.profiles.last_name || '',
-          avatar_url: match.profiles.avatar_url,
+          id: match.profiles?.id || '',
+          first_name: match.profiles?.first_name || '',
+          last_name: match.profiles?.last_name || '',
+          avatar_url: match.profiles?.avatar_url,
           university: null,
           student_type: null,
           major: null,
@@ -159,25 +159,28 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (error) throw error;
 
-      // Also create a conversation for this match
-      const { error: convError } = await db.conversations()
-        .insert({ 
-          match_id: data!.id 
-        });
+      // Create conversation only if we have match data
+      if (data && data.id) {
+        // Also create a conversation for this match
+        const { error: convError } = await db.conversations()
+          .insert({ 
+            match_id: data.id 
+          });
 
-      if (convError) throw convError;
+        if (convError) throw convError;
 
-      // Create notification for the other user
-      const { error: notifError } = await db.notifications()
-        .insert({
-          user_id: otherUserId,
-          type: 'match_request',
-          content: 'You have a new match request!',
-          related_id: data!.id,
-          is_read: false
-        });
+        // Create notification for the other user
+        const { error: notifError } = await db.notifications()
+          .insert({
+            user_id: otherUserId,
+            type: 'match_request',
+            content: 'You have a new match request!',
+            related_id: data.id,
+            is_read: false
+          });
 
-      if (notifError) throw notifError;
+        if (notifError) throw notifError;
+      }
 
       toast({
         title: "Match request sent",
@@ -209,9 +212,14 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (matchError) throw matchError;
 
+      // Ensure matchData exists
+      if (!matchData) {
+        throw new Error("Match not found");
+      }
+
       // Determine if user is user1 or user2
-      const isUser1 = matchData!.user1_id === user.id;
-      const otherUserId = isUser1 ? matchData!.user2_id : matchData!.user1_id;
+      const isUser1 = matchData.user1_id === user.id;
+      const otherUserId = isUser1 ? matchData.user2_id : matchData.user1_id;
 
       // Update the appropriate user_status
       const updates: any = {};
@@ -223,8 +231,8 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // If both users have accepted, update the overall status
       if (
-        (isUser1 && response === 'accept' && matchData!.user2_status === 'accept') ||
-        (!isUser1 && response === 'accept' && matchData!.user1_status === 'accept')
+        (isUser1 && response === 'accept' && matchData.user2_status === 'accept') ||
+        (!isUser1 && response === 'accept' && matchData.user1_status === 'accept')
       ) {
         updates.status = 'accepted';
       } else if (response === 'reject') {

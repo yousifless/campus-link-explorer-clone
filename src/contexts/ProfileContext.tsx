@@ -50,8 +50,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       // Format languages as objects with name, code, proficiency
       const languages = languagesData?.map((l: any) => ({
-        name: l.languages?.name,
-        code: l.languages?.code,
+        name: l.languages?.name || '',
+        code: l.languages?.code || '',
         proficiency: l.proficiency
       })) || [];
 
@@ -63,8 +63,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .eq('id', data.campus_id)
           .single();
           
-        if (!campusError && campusData) {
-          universityName = campusData.universities?.name || null;
+        if (!campusError && campusData && campusData.universities) {
+          universityName = campusData.universities.name || null;
         }
       }
 

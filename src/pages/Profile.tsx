@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -32,6 +31,7 @@ import {
   X
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { db } from '@/integrations/supabase/enhanced-client';
 
 const studentTypes = [
   { label: 'International Student', value: 'international' },
@@ -123,40 +123,36 @@ const Profile = () => {
       setLoadingData(true);
       try {
         // Fetch universities
-        const { data: univData, error: univError } = await supabase
-          .from('universities')
+        const { data: univData, error: univError } = await db.universities()
           .select('*')
           .order('name');
         
         if (univError) throw univError;
-        setUniversities(univData);
+        setUniversities(univData as University[]);
 
         // Fetch majors
-        const { data: majorsData, error: majorsError } = await supabase
-          .from('majors')
+        const { data: majorsData, error: majorsError } = await db.majors()
           .select('*')
           .order('name');
         
         if (majorsError) throw majorsError;
-        setMajors(majorsData);
+        setMajors(majorsData as Major[]);
 
         // Fetch languages
-        const { data: languagesData, error: languagesError } = await supabase
-          .from('languages')
+        const { data: languagesData, error: languagesError } = await db.languages()
           .select('*')
           .order('name');
         
         if (languagesError) throw languagesError;
-        setLanguages(languagesData);
+        setLanguages(languagesData as Language[]);
 
         // Fetch interests
-        const { data: interestsData, error: interestsError } = await supabase
-          .from('interests')
+        const { data: interestsData, error: interestsError } = await db.interests()
           .select('*')
           .order('name');
         
         if (interestsError) throw interestsError;
-        setInterests(interestsData);
+        setInterests(interestsData as Interest[]);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -184,23 +180,21 @@ const Profile = () => {
 
       if (profile.campus_id) {
         // Fetch the campus to get university ID
-        supabase
-          .from('campuses')
+        db.campuses()
           .select('university_id')
           .eq('id', profile.campus_id)
           .single()
-          .then(({ data }) => {
-            if (data?.university_id) {
+          .then(({ data, error }) => {
+            if (!error && data && data.university_id) {
               setSelectedUniversityId(data.university_id);
               
               // Fetch campuses for this university
-              supabase
-                .from('campuses')
+              db.campuses()
                 .select('*')
                 .eq('university_id', data.university_id)
                 .then(({ data: campusesData }) => {
                   if (campusesData) {
-                    setCampuses(campusesData);
+                    setCampuses(campusesData as Campus[]);
                   }
                 });
             }
@@ -214,7 +208,7 @@ const Profile = () => {
         .eq('user_id', profile.id)
         .then(({ data }) => {
           if (data) {
-            setSelectedLanguages(data);
+            setSelectedLanguages(data as UserLanguage[]);
           }
         });
 
@@ -239,8 +233,7 @@ const Profile = () => {
     }
 
     const fetchCampuses = async () => {
-      const { data, error } = await supabase
-        .from('campuses')
+      const { data, error } = await db.campuses()
         .select('*')
         .eq('university_id', selectedUniversityId)
         .order('name');
@@ -250,7 +243,7 @@ const Profile = () => {
         return;
       }
       
-      setCampuses(data);
+      setCampuses(data as Campus[]);
     };
 
     fetchCampuses();

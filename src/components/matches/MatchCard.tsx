@@ -1,90 +1,95 @@
 
 import React from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { MatchType } from '@/contexts/MatchingContext';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Check, X, User } from 'lucide-react';
-import { MatchType } from '@/types/database';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MatchCardProps {
   match: MatchType;
   isPending?: boolean;
-  onAccept?: () => Promise<void>;
-  onReject?: () => Promise<void>;
-  onMessage?: () => void;
+  onAccept?: () => void;
+  onReject?: () => void;
+  onMessage: () => void;
 }
 
-const MatchCard: React.FC<MatchCardProps> = ({ match, isPending = false, onAccept, onReject, onMessage }) => {
-  const isUser1 = match.user1_id === match.otherUser.id;
-  const userStatus = isUser1 ? match.user1_status : match.user2_status;
+const MatchCard = ({ match, isPending = false, onAccept, onReject, onMessage }: MatchCardProps) => {
+  const { user } = useAuth();
   
+  const isRequestSent = 
+    (match.user1_id === user?.id && match.user1_status === 'accepted' && match.user2_status === 'pending') ||
+    (match.user2_id === user?.id && match.user2_status === 'accepted' && match.user1_status === 'pending');
+  
+  const isRequestReceived = 
+    (match.user1_id === user?.id && match.user1_status === 'pending' && match.user2_status === 'accepted') ||
+    (match.user2_id === user?.id && match.user2_status === 'pending' && match.user1_status === 'accepted');
+
   return (
-    <Card className="mb-4">
-      <CardHeader className="pb-2">
+    <Card className="overflow-hidden">
+      <CardContent className="p-6">
         <div className="flex items-center space-x-4">
-          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-            {match.otherUser.avatar_url ? (
-              <img
-                src={match.otherUser.avatar_url}
-                alt={`${match.otherUser.first_name} ${match.otherUser.last_name}`}
-                className="h-full w-full rounded-full object-cover"
-              />
-            ) : (
-              <User size={24} className="text-primary" />
-            )}
-          </div>
+          <Avatar className="h-16 w-16">
+            <AvatarImage src={match.otherUser.avatar_url || undefined} alt={match.otherUser.first_name} />
+            <AvatarFallback>
+              {match.otherUser.first_name.charAt(0)}
+              {match.otherUser.last_name.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
           <div>
-            <h3 className="font-medium">
+            <h3 className="text-lg font-medium">
               {match.otherUser.first_name} {match.otherUser.last_name}
             </h3>
-            <p className="text-sm text-muted-foreground">
-              {match.otherUser.university || "University not specified"}
-            </p>
+            {match.otherUser.university && (
+              <p className="text-sm text-gray-500">{match.otherUser.university}</p>
+            )}
+            {isPending && (
+              <Badge variant="outline" className="mt-1">
+                {isRequestSent ? 'Request Sent' : 'Request Received'}
+              </Badge>
+            )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <p className="text-sm line-clamp-2 mb-3">
-          {match.otherUser.bio || "No bio provided."}
-        </p>
-        
+      </CardContent>
+      <CardFooter className="p-4 pt-0 flex flex-wrap gap-2">
         {isPending ? (
-          userStatus === 'pending' ? (
-            <div className="flex space-x-2">
+          isRequestReceived ? (
+            <>
               <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50"
-                onClick={onReject}
-              >
-                <X size={16} className="mr-1" />
-                Decline
-              </Button>
-              <Button 
-                size="sm" 
-                className="flex-1 bg-green-500 hover:bg-green-600"
+                variant="default" 
+                className="flex-1" 
                 onClick={onAccept}
               >
-                <Check size={16} className="mr-1" />
                 Accept
               </Button>
-            </div>
+              <Button 
+                variant="outline" 
+                className="flex-1" 
+                onClick={onReject}
+              >
+                Decline
+              </Button>
+            </>
           ) : (
-            <div className="text-sm text-muted-foreground">
-              Waiting for response...
-            </div>
+            <Button 
+              variant="outline" 
+              disabled
+              className="w-full"
+            >
+              Pending Response
+            </Button>
           )
         ) : (
           <Button 
-            variant="outline" 
-            size="sm" 
-            className="w-full"
+            variant="default" 
+            className="w-full" 
             onClick={onMessage}
           >
-            <MessageSquare size={16} className="mr-2" />
             Message
           </Button>
         )}
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 };

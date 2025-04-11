@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -19,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/supabase/enhanced-client';
 
 const studentTypes = [
   { label: 'International Student', value: 'international' },
@@ -97,8 +97,7 @@ const ProfileSetup = () => {
   // Fetch universities
   useEffect(() => {
     const fetchUniversities = async () => {
-      const { data, error } = await supabase
-        .from('universities')
+      const { data, error } = await db.universities()
         .select('*')
         .order('name');
       
@@ -107,12 +106,11 @@ const ProfileSetup = () => {
         return;
       }
       
-      setUniversities(data);
+      setUniversities(data as University[]);
     };
 
     const fetchMajors = async () => {
-      const { data, error } = await supabase
-        .from('majors')
+      const { data, error } = await db.majors()
         .select('*')
         .order('name');
       
@@ -121,7 +119,7 @@ const ProfileSetup = () => {
         return;
       }
       
-      setMajors(data);
+      setMajors(data as Major[]);
     };
 
     fetchUniversities();
@@ -136,8 +134,7 @@ const ProfileSetup = () => {
     }
 
     const fetchCampuses = async () => {
-      const { data, error } = await supabase
-        .from('campuses')
+      const { data, error } = await db.campuses()
         .select('*')
         .eq('university_id', selectedUniversityId)
         .order('name');
@@ -147,7 +144,7 @@ const ProfileSetup = () => {
         return;
       }
       
-      setCampuses(data);
+      setCampuses(data as Campus[]);
     };
 
     fetchCampuses();
