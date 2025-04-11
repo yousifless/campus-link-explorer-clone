@@ -1,6 +1,6 @@
 
-import React, { createContext, useContext, useState } from 'react';
-import { db } from '@/integrations/supabase/enhanced-client';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { NotificationType } from '@/types/database';
 
@@ -25,7 +25,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setLoading(true);
       if (!user) return;
 
-      const { data, error } = await db.notifications()
+      const { data, error } = await supabase
+        .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -34,7 +35,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (!data) return;
 
       // Convert to NotificationType[]
-      const typedNotifications = data.map(notification => ({
+      const typedNotifications: NotificationType[] = data.map(notification => ({
         id: notification.id,
         user_id: notification.user_id,
         type: notification.type,
@@ -57,7 +58,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setLoading(true);
       if (!user) return;
 
-      const { error } = await db.notifications()
+      const { error } = await supabase
+        .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId)
         .eq('user_id', user.id);
@@ -84,7 +86,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setLoading(true);
       if (!user) return;
 
-      const { error } = await db.notifications()
+      const { error } = await supabase
+        .from('notifications')
         .update({ is_read: true })
         .eq('user_id', user.id)
         .eq('is_read', false);
@@ -104,6 +107,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
 
   const unreadCount = notifications.filter((notification) => !notification.is_read).length;
 

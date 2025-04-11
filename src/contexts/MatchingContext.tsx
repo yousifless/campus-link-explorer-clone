@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/enhanced-client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { MatchType, SuggestedMatchType } from '@/types/database';
 
@@ -56,16 +57,24 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (error) throw error;
 
       // Process matches to include other user info
-      const userMatches = rawMatches.map(match => {
-        const otherUserId = match.user1_id === user?.id ? match.user2_id : match.user1_id;
+      const userMatches = rawMatches.map((match: any) => {
+        const isUser1 = match.user1_id === user?.id;
+        const otherUserId = isUser1 ? match.user2_id : match.user1_id;
         
         // Find the profile for the other user
-        const otherUserProfile = match.user1_id === user?.id 
+        const otherUserProfile = isUser1 
           ? (match.profiles_user2 || {}) 
           : (match.profiles_user1 || {});
 
         return {
-          ...match,
+          id: match.id,
+          user1_id: match.user1_id,
+          user2_id: match.user2_id,
+          status: match.status,
+          user1_status: match.user1_status,
+          user2_status: match.user2_status,
+          created_at: match.created_at,
+          updated_at: match.updated_at,
           otherUser: {
             id: otherUserId,
             first_name: otherUserProfile.first_name || '',
@@ -102,7 +111,7 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (error) throw error;
 
-      setSuggestedMatches(data as SuggestedMatchType[]);
+      setSuggestedMatches(data || []);
     } catch (error: any) {
       console.error("Error fetching suggested matches:", error);
     } finally {

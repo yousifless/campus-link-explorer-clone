@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import MatchCard from '@/components/matches/MatchCard';
 
 const Matches = () => {
-  const { matches, fetchMatches, respondToMatch, loading } = useMatching();
+  const { matches, fetchMatches, acceptMatch, rejectMatch, loading } = useMatching();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,11 +20,11 @@ const Matches = () => {
   const acceptedMatches = matches.filter(match => match.status === 'accepted');
 
   const handleAccept = async (matchId: string) => {
-    await respondToMatch(matchId, 'accept');
+    await acceptMatch(matchId);
   };
 
   const handleReject = async (matchId: string) => {
-    await respondToMatch(matchId, 'reject');
+    await rejectMatch(matchId);
   };
 
   const handleMessage = (matchId: string) => {

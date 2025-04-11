@@ -1,10 +1,9 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, db } from '@/integrations/supabase/enhanced-client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { ProfileType } from '@/types/database';
-import { convertToLanguages, convertToInterests, convertToMajors, convertToUniversities, convertToCampuses } from '@/utils/dataConverters';
 
 type ProfileContextType = {
   profile: ProfileType | null;
@@ -25,7 +24,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(true);
       if (!user) return;
 
-      const { data, error } = await db.profiles()
+      // Fetch basic profile
+      const { data, error } = await supabase
+        .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -33,14 +34,16 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) throw error;
 
       // Fetch user interests
-      const { data: userInterestsData, error: interestsError } = await db.user_interests()
+      const { data: userInterestsData, error: interestsError } = await supabase
+        .from('user_interests')
         .select('interests(id, name)')
         .eq('user_id', user.id);
 
       if (interestsError) throw interestsError;
 
       // Fetch user languages
-      const { data: userLanguagesData, error: languagesError } = await db.user_languages()
+      const { data: userLanguagesData, error: languagesError } = await supabase
+        .from('user_languages')
         .select('languages(id, name, code), proficiency')
         .eq('user_id', user.id);
 
@@ -52,16 +55,15 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ).filter(Boolean) || [];
       
       // Format languages
-      const languages = userLanguagesData?.map((l: any) => ({
-        name: l.languages?.name || '',
-        code: l.languages?.code || '',
-        proficiency: l.proficiency || ''
-      })) || [];
+      const languages = userLanguagesData?.map((l: any) => 
+        l.languages?.name || ''
+      ) || [];
 
       // Get university name if a campus is selected
       let universityName = null;
       if (data?.campus_id) {
-        const { data: campusData, error: campusError } = await db.campuses()
+        const { data: campusData, error: campusError } = await supabase
+          .from('campuses')
           .select('universities(name)')
           .eq('id', data.campus_id)
           .single();
@@ -98,7 +100,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { interests, languages, ...profileUpdates } = updates;
       
       // Update profile
-      const { error } = await db.profiles()
+      const { error } = await supabase
+        .from('profiles')
         .update(profileUpdates)
         .eq('id', user.id);
 
@@ -107,14 +110,16 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Update interests if provided
       if (interests && interests.length > 0) {
         // First, delete existing interests
-        await db.user_interests()
+        await supabase
+          .from('user_interests')
           .delete()
           .eq('user_id', user.id);
 
         // Then, add new interests
         for (const interestId of interests) {
           if (interestId) {
-            await db.user_interests()
+            await supabase
+              .from('user_interests')
               .insert({ 
                 user_id: user.id, 
                 interest_id: interestId 
@@ -126,14 +131,16 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Update languages if provided
       if (languages && languages.length > 0) {
         // First, delete existing languages
-        await db.user_languages()
+        await supabase
+          .from('user_languages')
           .delete()
           .eq('user_id', user.id);
 
-        // Then, add new languages
+        // Then, add new languages with null checks
         for (const lang of languages) {
           if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
-            await db.user_languages()
+            await supabase
+              .from('user_languages')
               .insert({ 
                 user_id: user.id, 
                 language_id: lang.id,

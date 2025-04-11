@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/enhanced-client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { ConversationType, MessageType } from '@/types/database';
 
@@ -36,21 +37,13 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               id,
               first_name,
               last_name,
-              avatar_url,
-              university,
-              student_type,
-              major,
-              bio
+              avatar_url
             ),
             profiles_user2:user2_id(
               id,
               first_name,
               last_name,
-              avatar_url,
-              university,
-              student_type,
-              major,
-              bio
+              avatar_url
             )
           `)
           .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
@@ -92,7 +85,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // Fetch last messages for each conversation
       const lastMessages = await Promise.all(
-        conversationsData.map(async (conversation) => {
+        conversationsData.map(async (conversation: any) => {
           const { data: lastMessageData, error: lastMessageError } = await supabase
             .from('messages')
             .select('*')
@@ -114,10 +107,15 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const match = matches.find((m: any) => m.id === conv.match_id);
         if (!match) return null;
 
-        const otherUserId = match.user1_id === user?.id ? match.user2_id : match.user1_id;
-        const otherUserProfile = match.user1_id === user?.id 
+        const isUser1 = match.user1_id === user?.id;
+        const otherUserId = isUser1 ? match.user2_id : match.user1_id;
+        const otherUserProfile = isUser1 
           ? (match.profiles_user2 || {}) 
           : (match.profiles_user1 || {});
+
+        const lastMessage = lastMessages.find((msg: any) => 
+          msg && msg.conversation_id === conv.id
+        );
 
         return {
           id: conv.id,
@@ -130,12 +128,12 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             last_name: otherUserProfile.last_name || '',
             avatar_url: otherUserProfile.avatar_url || '',
           },
-          last_message: lastMessages.find((msg: any) => msg.conversation_id === conv.id) || null
+          last_message: lastMessage as MessageType | undefined
         };
-      }).filter(Boolean);
+      }).filter(Boolean) as ConversationType[];
 
-      setConversations(conversationsWithUsers as ConversationType[]);
-      return conversationsWithUsers as ConversationType[];
+      setConversations(conversationsWithUsers);
+      return conversationsWithUsers;
     } catch (error: any) {
       console.error('Error fetching conversations:', error.message);
       return null;

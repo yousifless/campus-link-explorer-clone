@@ -9,50 +9,311 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      campuses: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          university_id: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          university_id: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          university_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campuses_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interests: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      languages: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      majors: {
+        Row: {
+          created_at: string
+          field_of_study: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          field_of_study: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          field_of_study?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      matches: {
+        Row: {
+          created_at: string
+          id: string
+          status: string
+          updated_at: string
+          user1_id: string
+          user1_status: string
+          user2_id: string
+          user2_status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user1_id: string
+          user1_status?: string
+          user2_id: string
+          user2_status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user1_id?: string
+          user1_status?: string
+          user2_id?: string
+          user2_status?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          related_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          related_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          related_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           bio: string | null
+          campus_id: string | null
           created_at: string
           first_name: string | null
           id: string
           interests: string[] | null
+          is_verified: boolean | null
           languages: string[] | null
           last_name: string | null
           major: string | null
+          major_id: string | null
+          nationality: string | null
           student_type: string | null
           university: string | null
           updated_at: string
+          year_of_study: number | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          campus_id?: string | null
           created_at?: string
           first_name?: string | null
           id: string
           interests?: string[] | null
+          is_verified?: boolean | null
           languages?: string[] | null
           last_name?: string | null
           major?: string | null
+          major_id?: string | null
+          nationality?: string | null
           student_type?: string | null
           university?: string | null
           updated_at?: string
+          year_of_study?: number | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          campus_id?: string | null
           created_at?: string
           first_name?: string | null
           id?: string
           interests?: string[] | null
+          is_verified?: boolean | null
           languages?: string[] | null
           last_name?: string | null
           major?: string | null
+          major_id?: string | null
+          nationality?: string | null
           student_type?: string | null
           university?: string | null
           updated_at?: string
+          year_of_study?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_campus_id_fkey"
+            columns: ["campus_id"]
+            isOneToOne: false
+            referencedRelation: "campuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_major_id_fkey"
+            columns: ["major_id"]
+            isOneToOne: false
+            referencedRelation: "majors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       Students: {
         Row: {
@@ -83,6 +344,100 @@ export type Database = {
           id?: number
         }
         Relationships: []
+      }
+      universities: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          location: string
+          name: string
+          type: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          id?: string
+          location: string
+          name: string
+          type: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          location?: string
+          name?: string
+          type?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      user_interests: {
+        Row: {
+          created_at: string
+          id: string
+          interest_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interest_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interest_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_interests_interest_id_fkey"
+            columns: ["interest_id"]
+            isOneToOne: false
+            referencedRelation: "interests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_languages: {
+        Row: {
+          created_at: string
+          id: string
+          language_id: string
+          proficiency: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          language_id: string
+          proficiency: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          language_id?: string
+          proficiency?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_languages_language_id_fkey"
+            columns: ["language_id"]
+            isOneToOne: false
+            referencedRelation: "languages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
