@@ -13,7 +13,7 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProfileProvider } from "./contexts/ProfileContext";
-import { MatchingProvider } from "./contexts/MatchingContext";
+import { MatchingProvider } from "./contexts/matching";
 import { ConversationProvider } from "./contexts/ConversationContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import ProfileSetup from "./pages/ProfileSetup";

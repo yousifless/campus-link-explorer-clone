@@ -1,31 +1,19 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './AuthContext';
 import { MatchType, SuggestedMatchType } from '@/types/database';
+import { useMatchTransform } from './useMatchTransform';
 
-type MatchingContextType = {
-  matches: MatchType[];
-  suggestedMatches: SuggestedMatchType[];
-  loading: boolean;
-  fetchMatches: () => Promise<void>;
-  fetchSuggestedMatches: () => Promise<void>;
-  acceptMatch: (matchId: string) => Promise<void>;
-  rejectMatch: (matchId: string) => Promise<void>;
-  createMatch: (userId: string) => Promise<void>;
-};
-
-const MatchingContext = createContext<MatchingContextType | undefined>(undefined);
-
-export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+export const useMatchOperations = (userId: string | undefined) => {
   const [matches, setMatches] = useState<MatchType[]>([]);
   const [suggestedMatches, setSuggestedMatches] = useState<SuggestedMatchType[]>([]);
   const [loading, setLoading] = useState(true);
+  const { transformMatchData } = useMatchTransform();
 
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      if (!user) return;
+      if (!userId) return;
 
       const { data: rawMatches, error } = await supabase
         .from('matches')
@@ -52,43 +40,11 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             bio
           )
         `)
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
 
       if (error) throw error;
 
-      const userMatches = rawMatches.map((match: any) => {
-        const isUser1 = match.user1_id === user?.id;
-        const otherUserId = isUser1 ? match.user2_id : match.user1_id;
-        
-        const otherUserProfile = isUser1 
-          ? (match.profiles_user2 || {}) 
-          : (match.profiles_user1 || {});
-
-        return {
-          id: match.id,
-          user1_id: match.user1_id,
-          user2_id: match.user2_id,
-          status: match.status,
-          user1_status: match.user1_status,
-          user2_status: match.user2_status,
-          created_at: match.created_at,
-          updated_at: match.updated_at,
-          otherUser: {
-            id: otherUserId,
-            first_name: otherUserProfile.first_name || '',
-            last_name: otherUserProfile.last_name || '',
-            avatar_url: otherUserProfile.avatar_url || '',
-            university: otherUserProfile.university || null,
-            student_type: otherUserProfile.student_type || null,
-            major: otherUserProfile.major || null,
-            bio: otherUserProfile.bio || null,
-            common_interests: 0,
-            common_languages: 0,
-            match_score: 0
-          },
-        };
-      });
-
+      const userMatches = transformMatchData(rawMatches, userId);
       setMatches(userMatches);
     } catch (error: any) {
       console.error("Error fetching matches:", error);
@@ -100,10 +56,10 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const fetchSuggestedMatches = async () => {
     try {
       setLoading(true);
-      if (!user) return;
+      if (!userId) return;
 
       const { data, error } = await supabase.rpc('get_suggested_matches', {
-        user_id: user.id
+        user_id: userId
       });
 
       if (error) throw error;
@@ -116,16 +72,16 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const createMatch = async (userId: string) => {
+  const createMatch = async (matchUserId: string) => {
     try {
       setLoading(true);
-      if (!user) return;
+      if (!userId) return;
 
       const { error } = await supabase
         .from('matches')
         .insert({
-          user1_id: user.id,
-          user2_id: userId,
+          user1_id: userId,
+          user2_id: matchUserId,
           status: 'pending',
           user1_status: 'accepted',
           user2_status: 'pending'
@@ -144,7 +100,7 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const acceptMatch = async (matchId: string) => {
     try {
       setLoading(true);
-      if (!user) return;
+      if (!userId) return;
 
       setMatches(matches.map(match =>
         match.id === matchId ? { ...match, status: 'accepted' } : match
@@ -171,7 +127,7 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const rejectMatch = async (matchId: string) => {
     try {
       setLoading(true);
-      if (!user) return;
+      if (!userId) return;
 
       setMatches(matches.map(match =>
         match.id === matchId ? { ...match, status: 'rejected' } : match
@@ -195,14 +151,7 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchMatches();
-      fetchSuggestedMatches();
-    }
-  }, [user]);
-
-  const value = {
+  return {
     matches,
     suggestedMatches,
     loading,
@@ -212,18 +161,4 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     rejectMatch,
     createMatch,
   };
-
-  return (
-    <MatchingContext.Provider value={value}>
-      {children}
-    </MatchingContext.Provider>
-  );
-};
-
-export const useMatching = () => {
-  const context = useContext(MatchingContext);
-  if (context === undefined) {
-    throw new Error('useMatching must be used within a MatchingProvider');
-  }
-  return context;
 };
