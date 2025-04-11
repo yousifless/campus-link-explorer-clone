@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -57,12 +56,10 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (error) throw error;
 
-      // Process matches to include other user info
       const userMatches = rawMatches.map((match: any) => {
         const isUser1 = match.user1_id === user?.id;
         const otherUserId = isUser1 ? match.user2_id : match.user1_id;
         
-        // Find the profile for the other user
         const otherUserProfile = isUser1 
           ? (match.profiles_user2 || {}) 
           : (match.profiles_user1 || {});
@@ -85,9 +82,9 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             student_type: otherUserProfile.student_type || null,
             major: otherUserProfile.major || null,
             bio: otherUserProfile.bio || null,
-            common_interests: 0, // For now 
-            common_languages: 0, // For now
-            match_score: 0 // For now
+            common_interests: 0,
+            common_languages: 0,
+            match_score: 0
           },
         };
       });
@@ -105,7 +102,6 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       if (!user) return;
 
-      // Fetch suggested matches (excluding already matched users)
       const { data, error } = await supabase.rpc('get_suggested_matches', {
         user_id: user.id
       });
@@ -125,7 +121,6 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       if (!user) return;
 
-      // Create a new match
       const { error } = await supabase
         .from('matches')
         .insert({
@@ -138,7 +133,6 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (error) throw error;
 
-      // Refresh matches
       await fetchMatches();
     } catch (error: any) {
       console.error("Error creating match:", error);
@@ -152,12 +146,10 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       if (!user) return;
 
-      // Optimistically update the match status
       setMatches(matches.map(match =>
         match.id === matchId ? { ...match, status: 'accepted' } : match
       ));
 
-      // Update the match status in the database
       const { error } = await supabase
         .from('matches')
         .update({ status: 'accepted' })
@@ -165,7 +157,6 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (error) {
         console.error("Error accepting match:", error);
-        // Revert the optimistic update if the database update fails
         setMatches(matches.map(match =>
           match.id === matchId ? { ...match, status: 'pending' } : match
         ));
@@ -182,12 +173,10 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       if (!user) return;
 
-      // Optimistically update the match status
       setMatches(matches.map(match =>
         match.id === matchId ? { ...match, status: 'rejected' } : match
       ));
 
-      // Update the match status in the database
       const { error } = await supabase
         .from('matches')
         .update({ status: 'rejected' })
@@ -195,7 +184,6 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (error) {
         console.error("Error rejecting match:", error);
-        // Revert the optimistic update if the database update fails
         setMatches(matches.map(match =>
           match.id === matchId ? { ...match, status: 'pending' } : match
         ));

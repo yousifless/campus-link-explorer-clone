@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -24,7 +23,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(true);
       if (!user) return;
 
-      // Fetch basic profile
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -33,7 +31,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (error) throw error;
 
-      // Fetch user interests
       const { data: userInterestsData, error: interestsError } = await supabase
         .from('user_interests')
         .select('interests(id, name)')
@@ -41,7 +38,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (interestsError) throw interestsError;
 
-      // Fetch user languages
       const { data: userLanguagesData, error: languagesError } = await supabase
         .from('user_languages')
         .select('languages(id, name, code), proficiency')
@@ -49,17 +45,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (languagesError) throw languagesError;
 
-      // Extract interests data
       const interests = userInterestsData?.map((i: any) => 
         i.interests?.name || ''
       ).filter(Boolean) || [];
       
-      // Format languages
       const languages = userLanguagesData?.map((l: any) => 
         l.languages?.name || ''
       ) || [];
 
-      // Get university name if a campus is selected
       let universityName = null;
       if (data?.campus_id) {
         const { data: campusData, error: campusError } = await supabase
@@ -73,7 +66,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
 
-      // Ensure student_type is either "international", "local" or null
       const studentType = data?.student_type === "international" || data?.student_type === "local" 
         ? data.student_type 
         : null;
@@ -102,10 +94,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(true);
       if (!user) throw new Error("No user logged in");
       
-      // Only update the core profile fields
       const { interests, languages, ...profileUpdates } = updates;
       
-      // Update profile
       const { error } = await supabase
         .from('profiles')
         .update(profileUpdates)
@@ -113,15 +103,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (error) throw error;
 
-      // Update interests if provided
       if (interests && interests.length > 0) {
-        // First, delete existing interests
         await supabase
           .from('user_interests')
           .delete()
           .eq('user_id', user.id);
 
-        // Then, add new interests
         for (const interestId of interests) {
           if (interestId) {
             await supabase
@@ -134,15 +121,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
 
-      // Update languages if provided
       if (languages && languages.length > 0) {
-        // First, delete existing languages
         await supabase
           .from('user_languages')
           .delete()
           .eq('user_id', user.id);
 
-        // Then, add new languages with null checks
         for (const lang of languages) {
           if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
             const langId = lang.id || '';
