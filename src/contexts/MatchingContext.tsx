@@ -12,6 +12,7 @@ type MatchingContextType = {
   fetchSuggestedMatches: () => Promise<void>;
   acceptMatch: (matchId: string) => Promise<void>;
   rejectMatch: (matchId: string) => Promise<void>;
+  createMatch: (userId: string) => Promise<void>;
 };
 
 const MatchingContext = createContext<MatchingContextType | undefined>(undefined);
@@ -119,6 +120,33 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const createMatch = async (userId: string) => {
+    try {
+      setLoading(true);
+      if (!user) return;
+
+      // Create a new match
+      const { error } = await supabase
+        .from('matches')
+        .insert({
+          user1_id: user.id,
+          user2_id: userId,
+          status: 'pending',
+          user1_status: 'accepted',
+          user2_status: 'pending'
+        });
+
+      if (error) throw error;
+
+      // Refresh matches
+      await fetchMatches();
+    } catch (error: any) {
+      console.error("Error creating match:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const acceptMatch = async (matchId: string) => {
     try {
       setLoading(true);
@@ -194,6 +222,7 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     fetchSuggestedMatches,
     acceptMatch,
     rejectMatch,
+    createMatch,
   };
 
   return (

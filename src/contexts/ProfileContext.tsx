@@ -73,13 +73,19 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
 
+      // Ensure student_type is either "international", "local" or null
+      const studentType = data?.student_type === "international" || data?.student_type === "local" 
+        ? data.student_type 
+        : null;
+
       setProfile({
         ...data,
         interests,
         languages,
         university: universityName,
+        student_type: studentType,
         is_verified: data?.is_verified || false
-      });
+      } as ProfileType);
     } catch (error: any) {
       toast({
         title: "Error fetching profile",
@@ -139,12 +145,15 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Then, add new languages with null checks
         for (const lang of languages) {
           if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
+            const langId = lang.id || '';
+            const proficiency = lang.proficiency || 'beginner';
+            
             await supabase
               .from('user_languages')
               .insert({ 
                 user_id: user.id, 
-                language_id: lang.id,
-                proficiency: lang.proficiency 
+                language_id: langId,
+                proficiency: proficiency 
               });
           }
         }

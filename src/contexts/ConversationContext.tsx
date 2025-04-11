@@ -5,10 +5,13 @@ import { useAuth } from './AuthContext';
 import { ConversationType, MessageType } from '@/types/database';
 
 type ConversationContextType = {
-  conversations: ConversationType[] | null;
-  messages: MessageType[] | null;
+  conversations: ConversationType[];
+  messages: MessageType[];
   loadingConversations: boolean;
   loadingMessages: boolean;
+  loading: boolean; // Adding this property for backward compatibility
+  currentConversation: ConversationType | null;
+  setCurrentConversation: (conversation: ConversationType | null) => void;
   fetchConversations: () => Promise<ConversationType[] | null>;
   fetchMessages: (conversationId: string) => Promise<void>;
   sendMessage: (conversationId: string, content: string) => Promise<void>;
@@ -18,11 +21,15 @@ const ConversationContext = createContext<ConversationContextType | undefined>(u
 
 export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [conversations, setConversations] = useState<ConversationType[] | null>(null);
-  const [messages, setMessages] = useState<MessageType[] | null>(null);
+  const [conversations, setConversations] = useState<ConversationType[]>([]);
+  const [messages, setMessages] = useState<MessageType[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [matches, setMatches] = useState<any[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<ConversationType | null>(null);
+
+  // Computed loading state that combines both loading states
+  const loading = loadingConversations || loadingMessages;
 
   useEffect(() => {
     const fetchAllMatches = async () => {
@@ -210,7 +217,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         },
       };
 
-      setMessages((prevMessages) => (prevMessages ? [...prevMessages, newMessage] : [newMessage]));
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
 
       // Fetch updated messages
       await fetchMessages(conversationId);
@@ -225,6 +232,9 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     messages,
     loadingConversations,
     loadingMessages,
+    loading,
+    currentConversation,
+    setCurrentConversation,
     fetchConversations,
     fetchMessages,
     sendMessage,
