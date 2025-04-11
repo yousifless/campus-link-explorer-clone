@@ -1,8 +1,6 @@
-
-import React, { createContext, useContext, useState } from 'react';
-import { supabase, db } from '@/integrations/supabase/enhanced-client';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/enhanced-client';
 import { useAuth } from './AuthContext';
-import { toast } from '@/hooks/use-toast';
 import { MatchType, SuggestedMatchType } from '@/types/database';
 
 type MatchingContextType = {
@@ -11,8 +9,8 @@ type MatchingContextType = {
   loading: boolean;
   fetchMatches: () => Promise<void>;
   fetchSuggestedMatches: () => Promise<void>;
-  createMatch: (otherUserId: string) => Promise<void>;
-  respondToMatch: (matchId: string, response: 'accept' | 'reject') => Promise<void>;
+  acceptMatch: (matchId: string) => Promise<void>;
+  rejectMatch: (matchId: string) => Promise<void>;
 };
 
 const MatchingContext = createContext<MatchingContextType | undefined>(undefined);
@@ -21,79 +19,72 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { user } = useAuth();
   const [matches, setMatches] = useState<MatchType[]>([]);
   const [suggestedMatches, setSuggestedMatches] = useState<SuggestedMatchType[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchMatches = async () => {
     try {
       setLoading(true);
       if (!user) return;
 
-      // Get matches where user is user1
-      const { data: user1Matches, error: error1 } = await db.matches()
+      const { data: rawMatches, error } = await supabase
+        .from('matches')
         .select(`
-          id, user1_id, user2_id, status, user1_status, user2_status, created_at, updated_at,
-          profiles!matches_user2_id_fkey(
-            id, first_name, last_name, avatar_url
+          *,
+          profiles_user1:user1_id(
+            id,
+            first_name,
+            last_name,
+            avatar_url,
+            university,
+            student_type,
+            major,
+            bio
+          ),
+          profiles_user2:user2_id(
+            id,
+            first_name,
+            last_name,
+            avatar_url,
+            university,
+            student_type,
+            major,
+            bio
           )
         `)
-        .eq('user1_id', user.id);
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      if (error1) throw error1;
+      if (error) throw error;
 
-      // Get matches where user is user2
-      const { data: user2Matches, error: error2 } = await db.matches()
-        .select(`
-          id, user1_id, user2_id, status, user1_status, user2_status, created_at, updated_at,
-          profiles!matches_user1_id_fkey(
-            id, first_name, last_name, avatar_url
-          )
-        `)
-        .eq('user2_id', user.id);
+      // Process matches to include other user info
+      const userMatches = rawMatches.map(match => {
+        const otherUserId = match.user1_id === user?.id ? match.user2_id : match.user1_id;
+        
+        // Find the profile for the other user
+        const otherUserProfile = match.user1_id === user?.id 
+          ? (match.profiles_user2 || {}) 
+          : (match.profiles_user1 || {});
 
-      if (error2) throw error2;
-
-      // Process and combine matches
-      const processedUser1Matches = user1Matches?.map((match) => ({
-        ...match,
-        otherUser: {
-          id: match.profiles?.id || '',
-          first_name: match.profiles?.first_name || '',
-          last_name: match.profiles?.last_name || '',
-          avatar_url: match.profiles?.avatar_url,
-          university: null, // We can fetch additional data if needed
-          student_type: null,
-          major: null,
-          bio: null,
-          common_interests: 0,
-          common_languages: 0,
-          match_score: 0
-        }
-      })) || [];
-
-      const processedUser2Matches = user2Matches?.map((match) => ({
-        ...match,
-        otherUser: {
-          id: match.profiles?.id || '',
-          first_name: match.profiles?.first_name || '',
-          last_name: match.profiles?.last_name || '',
-          avatar_url: match.profiles?.avatar_url,
-          university: null,
-          student_type: null,
-          major: null,
-          bio: null,
-          common_interests: 0,
-          common_languages: 0,
-          match_score: 0
-        }
-      })) || [];
-
-      setMatches([...processedUser1Matches, ...processedUser2Matches]);
-    } catch (error: any) {
-      toast({
-        title: "Error fetching matches",
-        description: error.message,
-        variant: "destructive"
+        return {
+          ...match,
+          otherUser: {
+            id: otherUserId,
+            first_name: otherUserProfile.first_name || '',
+            last_name: otherUserProfile.last_name || '',
+            avatar_url: otherUserProfile.avatar_url || '',
+            university: otherUserProfile.university || null,
+            student_type: otherUserProfile.student_type || null,
+            major: otherUserProfile.major || null,
+            bio: otherUserProfile.bio || null,
+            common_interests: 0, // For now 
+            common_languages: 0, // For now
+            match_score: 0 // For now
+          },
+        };
       });
+
+      setMatches(userMatches);
+    } catch (error: any) {
+      console.error("Error fetching matches:", error);
     } finally {
       setLoading(false);
     }
@@ -104,180 +95,87 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setLoading(true);
       if (!user) return;
 
-      // Use the custom function to get potential matches
-      const { data, error } = await supabase
-        .rpc('get_potential_matches', { user_id: user.id, limit_count: 20 });
+      // Fetch suggested matches (excluding already matched users)
+      const { data, error } = await supabase.rpc('get_suggested_matches', {
+        user_id: user.id
+      });
 
       if (error) throw error;
 
-      // Process matches to match the SuggestedMatchType
-      const processedMatches = data?.map((match: any) => ({
-        id: match.id,
-        first_name: match.first_name,
-        last_name: match.last_name,
-        university: match.university,
-        student_type: match.student_type,
-        bio: match.bio,
-        major: match.major,
-        common_interests: match.common_interests,
-        common_languages: match.common_languages,
-        match_score: match.match_score
-      })) || [];
-
-      setSuggestedMatches(processedMatches);
+      setSuggestedMatches(data as SuggestedMatchType[]);
     } catch (error: any) {
-      toast({
-        title: "Error fetching suggested matches",
-        description: error.message,
-        variant: "destructive"
-      });
+      console.error("Error fetching suggested matches:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const createMatch = async (otherUserId: string) => {
+  const acceptMatch = async (matchId: string) => {
     try {
       setLoading(true);
-      if (!user) throw new Error("No user logged in");
+      if (!user) return;
 
-      // Determine user1_id and user2_id (smaller ID first for consistency)
-      const user1_id = user.id < otherUserId ? user.id : otherUserId;
-      const user2_id = user.id < otherUserId ? otherUserId : user.id;
+      // Optimistically update the match status
+      setMatches(matches.map(match =>
+        match.id === matchId ? { ...match, status: 'accepted' } : match
+      ));
 
-      // Create match
-      const { data, error } = await db.matches()
-        .insert({
-          user1_id,
-          user2_id,
-          status: 'pending',
-          user1_status: user.id === user1_id ? 'accepted' : 'pending',
-          user2_status: user.id === user2_id ? 'accepted' : 'pending'
-        })
-        .select('id')
-        .single();
-
-      if (error) throw error;
-
-      // Create conversation only if we have match data
-      if (data && data.id) {
-        // Also create a conversation for this match
-        const { error: convError } = await db.conversations()
-          .insert({ 
-            match_id: data.id 
-          });
-
-        if (convError) throw convError;
-
-        // Create notification for the other user
-        const { error: notifError } = await db.notifications()
-          .insert({
-            user_id: otherUserId,
-            type: 'match_request',
-            content: 'You have a new match request!',
-            related_id: data.id,
-            is_read: false
-          });
-
-        if (notifError) throw notifError;
-      }
-
-      toast({
-        title: "Match request sent",
-        description: "Your match request has been sent successfully",
-      });
-
-      await fetchSuggestedMatches();
-    } catch (error: any) {
-      toast({
-        title: "Error creating match",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const respondToMatch = async (matchId: string, response: 'accept' | 'reject') => {
-    try {
-      setLoading(true);
-      if (!user) throw new Error("No user logged in");
-
-      // Get the match
-      const { data: matchData, error: matchError } = await db.matches()
-        .select('*')
-        .eq('id', matchId)
-        .single();
-
-      if (matchError) throw matchError;
-
-      // Ensure matchData exists
-      if (!matchData) {
-        throw new Error("Match not found");
-      }
-
-      // Determine if user is user1 or user2
-      const isUser1 = matchData.user1_id === user.id;
-      const otherUserId = isUser1 ? matchData.user2_id : matchData.user1_id;
-
-      // Update the appropriate user_status
-      const updates: any = {};
-      if (isUser1) {
-        updates.user1_status = response;
-      } else {
-        updates.user2_status = response;
-      }
-
-      // If both users have accepted, update the overall status
-      if (
-        (isUser1 && response === 'accept' && matchData.user2_status === 'accept') ||
-        (!isUser1 && response === 'accept' && matchData.user1_status === 'accept')
-      ) {
-        updates.status = 'accepted';
-      } else if (response === 'reject') {
-        updates.status = 'rejected';
-      }
-
-      // Update the match
-      const { error } = await db.matches()
-        .update(updates)
+      // Update the match status in the database
+      const { error } = await supabase
+        .from('matches')
+        .update({ status: 'accepted' })
         .eq('id', matchId);
 
-      if (error) throw error;
-
-      // Create notification for the other user
-      const { error: notifError } = await db.notifications()
-        .insert({
-          user_id: otherUserId,
-          type: response === 'accept' ? 'match_accepted' : 'match_rejected',
-          content: response === 'accept' 
-            ? 'Your match request was accepted!' 
-            : 'Your match request was declined.',
-          related_id: matchId,
-          is_read: false
-        });
-
-      if (notifError) throw notifError;
-
-      toast({
-        title: response === 'accept' ? "Match accepted" : "Match rejected",
-        description: response === 'accept' 
-          ? "You are now matched! You can start chatting." 
-          : "Match request has been declined",
-      });
-
-      await fetchMatches();
+      if (error) {
+        console.error("Error accepting match:", error);
+        // Revert the optimistic update if the database update fails
+        setMatches(matches.map(match =>
+          match.id === matchId ? { ...match, status: 'pending' } : match
+        ));
+      }
     } catch (error: any) {
-      toast({
-        title: "Error responding to match",
-        description: error.message,
-        variant: "destructive"
-      });
+      console.error("Error accepting match:", error);
     } finally {
       setLoading(false);
     }
   };
+
+  const rejectMatch = async (matchId: string) => {
+    try {
+      setLoading(true);
+      if (!user) return;
+
+      // Optimistically update the match status
+      setMatches(matches.map(match =>
+        match.id === matchId ? { ...match, status: 'rejected' } : match
+      ));
+
+      // Update the match status in the database
+      const { error } = await supabase
+        .from('matches')
+        .update({ status: 'rejected' })
+        .eq('id', matchId);
+
+      if (error) {
+        console.error("Error rejecting match:", error);
+        // Revert the optimistic update if the database update fails
+        setMatches(matches.map(match =>
+          match.id === matchId ? { ...match, status: 'pending' } : match
+        ));
+      }
+    } catch (error: any) {
+      console.error("Error rejecting match:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchMatches();
+      fetchSuggestedMatches();
+    }
+  }, [user]);
 
   const value = {
     matches,
@@ -285,11 +183,15 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     loading,
     fetchMatches,
     fetchSuggestedMatches,
-    createMatch,
-    respondToMatch,
+    acceptMatch,
+    rejectMatch,
   };
 
-  return <MatchingContext.Provider value={value}>{children}</MatchingContext.Provider>;
+  return (
+    <MatchingContext.Provider value={value}>
+      {children}
+    </MatchingContext.Provider>
+  );
 };
 
 export const useMatching = () => {
@@ -299,5 +201,3 @@ export const useMatching = () => {
   }
   return context;
 };
-
-export type { MatchType, SuggestedMatchType };

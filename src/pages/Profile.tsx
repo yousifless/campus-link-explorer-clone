@@ -117,37 +117,36 @@ const Profile = () => {
     },
   });
 
-  // Fetch reference data
   useEffect(() => {
     const fetchData = async () => {
       setLoadingData(true);
       try {
-        // Fetch universities
-        const { data: univData, error: univError } = await db.universities()
+        const { data: univData, error: univError } = await supabase
+          .from('universities')
           .select('*')
           .order('name');
         
         if (univError) throw univError;
         setUniversities(univData as University[]);
 
-        // Fetch majors
-        const { data: majorsData, error: majorsError } = await db.majors()
+        const { data: majorsData, error: majorsError } = await supabase
+          .from('majors')
           .select('*')
           .order('name');
         
         if (majorsError) throw majorsError;
         setMajors(majorsData as Major[]);
 
-        // Fetch languages
-        const { data: languagesData, error: languagesError } = await db.languages()
+        const { data: languagesData, error: languagesError } = await supabase
+          .from('languages')
           .select('*')
           .order('name');
         
         if (languagesError) throw languagesError;
         setLanguages(languagesData as Language[]);
 
-        // Fetch interests
-        const { data: interestsData, error: interestsError } = await db.interests()
+        const { data: interestsData, error: interestsError } = await supabase
+          .from('interests')
           .select('*')
           .order('name');
         
@@ -163,7 +162,6 @@ const Profile = () => {
     fetchData();
   }, []);
 
-  // Load profile data into form
   useEffect(() => {
     if (profile) {
       form.reset({
@@ -179,8 +177,8 @@ const Profile = () => {
       });
 
       if (profile.campus_id) {
-        // Fetch the campus to get university ID
-        db.campuses()
+        supabase
+          .from('campuses')
           .select('university_id')
           .eq('id', profile.campus_id)
           .single()
@@ -188,8 +186,8 @@ const Profile = () => {
             if (!error && data && data.university_id) {
               setSelectedUniversityId(data.university_id);
               
-              // Fetch campuses for this university
-              db.campuses()
+              supabase
+                .from('campuses')
                 .select('*')
                 .eq('university_id', data.university_id)
                 .then(({ data: campusesData }) => {
@@ -201,7 +199,6 @@ const Profile = () => {
           });
       }
 
-      // Fetch user languages
       supabase
         .from('user_languages')
         .select('language_id, proficiency')
@@ -212,7 +209,6 @@ const Profile = () => {
           }
         });
 
-      // Fetch user interests
       supabase
         .from('user_interests')
         .select('interest_id')
@@ -225,7 +221,6 @@ const Profile = () => {
     }
   }, [profile, form]);
 
-  // Fetch campuses when university is selected
   useEffect(() => {
     if (!selectedUniversityId) {
       setCampuses([]);
@@ -233,7 +228,8 @@ const Profile = () => {
     }
 
     const fetchCampuses = async () => {
-      const { data, error } = await db.campuses()
+      const { data, error } = await supabase
+        .from('campuses')
         .select('*')
         .eq('university_id', selectedUniversityId)
         .order('name');
@@ -257,14 +253,12 @@ const Profile = () => {
 
   const handleAddLanguage = async (languageId: string, proficiency: string) => {
     if (selectedLanguages.some(l => l.language_id === languageId)) {
-      // Already selected, update proficiency
       setSelectedLanguages(
         selectedLanguages.map(l => 
           l.language_id === languageId ? { ...l, proficiency } : l
         )
       );
     } else {
-      // Add new language
       setSelectedLanguages([
         ...selectedLanguages,
         { language_id: languageId, proficiency }
@@ -298,16 +292,13 @@ const Profile = () => {
 
     await updateProfile(updates);
 
-    // Update languages
     await Promise.all(selectedLanguages.map(async lang => {
-      // Delete existing
       await supabase
         .from('user_languages')
         .delete()
         .eq('user_id', profile?.id)
         .eq('language_id', lang.language_id);
       
-      // Insert new
       await supabase
         .from('user_languages')
         .insert({
@@ -317,7 +308,6 @@ const Profile = () => {
         });
     }));
 
-    // Update interests
     await supabase
       .from('user_interests')
       .delete()

@@ -4,6 +4,7 @@ import { supabase, db } from '@/integrations/supabase/enhanced-client';
 import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { ProfileType } from '@/types/database';
+import { convertToLanguages, convertToInterests, convertToMajors, convertToUniversities, convertToCampuses } from '@/utils/dataConverters';
 
 type ProfileContextType = {
   profile: ProfileType | null;
@@ -32,28 +33,30 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) throw error;
 
       // Fetch user interests
-      const { data: interestsData, error: interestsError } = await db.user_interests()
-        .select('interests(name)')
+      const { data: userInterestsData, error: interestsError } = await db.user_interests()
+        .select('interests(id, name)')
         .eq('user_id', user.id);
 
       if (interestsError) throw interestsError;
 
       // Fetch user languages
-      const { data: languagesData, error: languagesError } = await db.user_languages()
-        .select('languages(name, code), proficiency')
+      const { data: userLanguagesData, error: languagesError } = await db.user_languages()
+        .select('languages(id, name, code), proficiency')
         .eq('user_id', user.id);
 
       if (languagesError) throw languagesError;
 
-      // Extract just the interest/language names
-      const interests = interestsData?.map((i: any) => i.interests?.name) || [];
+      // Extract interests data
+      const interests = userInterestsData?.map((i: any) => 
+        i.interests?.name || ''
+      ).filter(Boolean) || [];
       
       // Format languages
-      const formattedLanguages = languagesData?.map((l: any) => ({
+      const languages = userLanguagesData?.map((l: any) => ({
         name: l.languages?.name || '',
         code: l.languages?.code || '',
-        proficiency: l.proficiency
-      }));
+        proficiency: l.proficiency || ''
+      })) || [];
 
       // Get university name if a campus is selected
       let universityName = null;
@@ -71,7 +74,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setProfile({
         ...data,
         interests,
-        languages: formattedLanguages,
+        languages,
         university: universityName,
         is_verified: data?.is_verified || false
       });
@@ -102,7 +105,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) throw error;
 
       // Update interests if provided
-      if (interests) {
+      if (interests && interests.length > 0) {
         // First, delete existing interests
         await db.user_interests()
           .delete()
@@ -129,7 +132,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Then, add new languages
         for (const lang of languages) {
-          if (typeof lang === 'object' && lang && 'id' in lang && 'proficiency' in lang) {
+          if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
             await db.user_languages()
               .insert({ 
                 user_id: user.id, 
