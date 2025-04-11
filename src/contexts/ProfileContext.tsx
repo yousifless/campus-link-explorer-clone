@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -129,16 +130,18 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         for (const lang of languages) {
           if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
-            const langId = lang.id || '';
-            const proficiency = lang.proficiency || 'beginner';
+            const langId = lang.id ?? '';
+            const proficiency = lang.proficiency ?? 'beginner';
             
-            await supabase
-              .from('user_languages')
-              .insert({ 
-                user_id: user.id, 
-                language_id: langId,
-                proficiency: proficiency 
-              });
+            if (langId) {
+              await supabase
+                .from('user_languages')
+                .insert({ 
+                  user_id: user.id, 
+                  language_id: langId,
+                  proficiency: proficiency 
+                });
+            }
           }
         }
       }
