@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { db } from '@/integrations/supabase/enhanced-client';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import ProfileCompletionIndicator from '@/components/profile/ProfileCompletionIndicator';
+import { motion } from 'framer-motion';
 
 const studentTypes = [
   { label: 'International Student', value: 'international' },
@@ -363,6 +364,11 @@ const Profile = () => {
     setIsEditing(false);
   }
 
+  const fadeIn = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+  };
+
   if (loading && !profile) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -390,7 +396,7 @@ const Profile = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
-          <Card className="shadow-lg h-full">
+          <Card className="shadow-lg h-full transition-all hover:shadow-xl">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
                 <CardTitle className="text-2xl font-bold">Your Profile</CardTitle>
@@ -402,6 +408,7 @@ const Profile = () => {
                 variant={isEditing ? 'outline' : 'default'}
                 size="sm"
                 onClick={() => setIsEditing(!isEditing)}
+                className="transition-all hover:scale-105"
               >
                 {isEditing ? (
                   <>
@@ -422,7 +429,7 @@ const Profile = () => {
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <div className="flex flex-col items-center mb-6">
                       <div className="relative group">
-                        <Avatar className="h-24 w-24 border-2 border-primary/20">
+                        <Avatar className="h-24 w-24 border-2 border-primary/20 transition-all hover:border-primary/40">
                           {profile?.avatar_url ? (
                             <AvatarImage src={profile.avatar_url} alt={`${profile.first_name} ${profile.last_name}`} />
                           ) : (
@@ -771,15 +778,15 @@ const Profile = () => {
                 <div className="space-y-6">
                   <Tabs defaultValue="profile" className="w-full">
                     <TabsList className="mb-4">
-                      <TabsTrigger value="profile">Profile</TabsTrigger>
-                      <TabsTrigger value="interests">Interests & Languages</TabsTrigger>
+                      <TabsTrigger value="profile" className="transition-all data-[state=active]:font-medium">Profile</TabsTrigger>
+                      <TabsTrigger value="interests" className="transition-all data-[state=active]:font-medium">Interests & Languages</TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="profile">
+                    <TabsContent value="profile" className="animate-fade-in">
                       <div className="space-y-6">
                         <div className="flex flex-col items-center text-center sm:flex-row sm:text-left sm:items-start gap-4">
                           <div className="flex-shrink-0">
-                            <Avatar className="h-24 w-24 border-2 border-primary/20">
+                            <Avatar className="h-24 w-24 border-2 border-primary/20 transition-all hover:border-primary/40">
                               {profile?.avatar_url ? (
                                 <AvatarImage src={profile.avatar_url} alt={`${profile.first_name} ${profile.last_name}`} />
                               ) : (
@@ -808,7 +815,7 @@ const Profile = () => {
                         </div>
 
                         <div className="grid gap-6 md:grid-cols-2">
-                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg transition-all hover:bg-muted/40">
                             <h3 className="text-lg font-medium flex items-center">
                               <School size={18} className="mr-2 text-primary" />
                               Education
@@ -820,7 +827,7 @@ const Profile = () => {
                             </div>
                           </div>
                           
-                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg transition-all hover:bg-muted/40">
                             <h3 className="text-lg font-medium flex items-center">
                               <Globe size={18} className="mr-2 text-primary" />
                               Location
@@ -834,9 +841,9 @@ const Profile = () => {
                       </div>
                     </TabsContent>
                     
-                    <TabsContent value="interests">
+                    <TabsContent value="interests" className="animate-fade-in">
                       <div className="space-y-6">
-                        <div className="p-4 bg-muted/30 rounded-lg">
+                        <div className="p-4 bg-muted/30 rounded-lg transition-all hover:bg-muted/40">
                           <h3 className="text-lg font-medium flex items-center mb-3">
                             <Languages size={18} className="mr-2 text-primary" />
                             Languages
@@ -845,7 +852,7 @@ const Profile = () => {
                             {selectedLanguages.length === 0 ? (
                               <p className="text-muted-foreground">No languages added yet.</p>
                             ) : (
-                              selectedLanguages.map((userLang) => {
+                              selectedLanguages.map((userLang, index) => {
                                 const lang = languages.find(l => l.id === userLang.language_id);
                                 if (!lang) return null;
                                 
@@ -853,7 +860,8 @@ const Profile = () => {
                                   <Badge 
                                     key={lang.id} 
                                     variant="secondary"
-                                    className="px-3 py-1.5"
+                                    className="px-3 py-1.5 transition-all hover:bg-secondary/80"
+                                    style={{ animationDelay: `${index * 50}ms` }}
                                   >
                                     {lang.name}
                                     <span className="text-xs bg-primary/10 px-1.5 py-0.5 rounded ml-1">
@@ -866,7 +874,7 @@ const Profile = () => {
                           </div>
                         </div>
                         
-                        <div className="p-4 bg-muted/30 rounded-lg">
+                        <div className="p-4 bg-muted/30 rounded-lg transition-all hover:bg-muted/40">
                           <h3 className="text-lg font-medium flex items-center mb-3">
                             <Heart size={18} className="mr-2 text-primary" />
                             Interests
@@ -875,7 +883,7 @@ const Profile = () => {
                             {selectedInterests.length === 0 ? (
                               <p className="text-muted-foreground">No interests added yet.</p>
                             ) : (
-                              selectedInterests.map((interestId) => {
+                              selectedInterests.map((interestId, index) => {
                                 const interest = interests.find(i => i.id === interestId);
                                 if (!interest) return null;
                                 
@@ -883,7 +891,8 @@ const Profile = () => {
                                   <Badge 
                                     key={interest.id}
                                     variant="outline" 
-                                    className="px-3 py-1.5"
+                                    className="px-3 py-1.5 transition-all hover:bg-muted/50"
+                                    style={{ animationDelay: `${index * 50}ms` }}
                                   >
                                     {interest.name}
                                   </Badge>
@@ -904,19 +913,44 @@ const Profile = () => {
         <div className="space-y-6">
           <ProfileCompletionIndicator profile={profile} />
           
-          <Card>
+          <Card className="transition-all hover:shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <UserCircle className="mr-2" size={16} />
-                View Public Profile
-              </Button>
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <BookOpen className="mr-2" size={16} />
-                View Academic Records
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start transition-all hover:bg-muted/50 hover:translate-x-1"
+                      size="sm"
+                    >
+                      <UserCircle className="mr-2" size={16} />
+                      View Public Profile
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>See how others view your profile</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start transition-all hover:bg-muted/50 hover:translate-x-1"
+                      size="sm"
+                    >
+                      <BookOpen className="mr-2" size={16} />
+                      View Academic Records
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Access your courses, grades, and academic achievements</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardContent>
           </Card>
         </div>
