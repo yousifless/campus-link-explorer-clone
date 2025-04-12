@@ -5,6 +5,14 @@ import { useAuth } from './AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { ProfileType } from '@/types/database';
 
+// Define a language interface to properly type the language objects
+interface LanguageWithProficiency {
+  id: string;
+  name?: string;
+  code?: string;
+  proficiency?: string;
+}
+
 type ProfileContextType = {
   profile: ProfileType | null;
   loading: boolean;
@@ -129,21 +137,20 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .eq('user_id', user.id);
 
         for (const lang of languages) {
-          if (lang && typeof lang === 'object' && 'id' in lang) {
-            // Use type assertion with proper null checks
-            const langId = lang.id; // TypeScript will infer this exists due to 'id' in lang check
+          // First check if lang exists and has the expected structure
+          if (lang && typeof lang === 'object') {
+            // Type guard to ensure lang has an id property
+            const langObj = lang as LanguageWithProficiency;
             
-            if (langId) {
-              // Safely access proficiency with fallback
-              const proficiency = ('proficiency' in lang && lang.proficiency) 
-                ? lang.proficiency 
-                : 'beginner';
+            if (langObj.id) {
+              // Define a safe proficiency value with fallback
+              const proficiency = langObj.proficiency || 'beginner';
               
               await supabase
                 .from('user_languages')
                 .insert({ 
                   user_id: user.id, 
-                  language_id: langId,
+                  language_id: langObj.id,
                   proficiency: proficiency 
                 });
             }
