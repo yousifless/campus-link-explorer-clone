@@ -44,7 +44,7 @@ export const useMatchOperations = (userId: string | undefined) => {
 
       if (error) throw error;
 
-      const userMatches = transformMatchData(rawMatches, userId);
+      const userMatches = transformMatchData(rawMatches || [], userId);
       setMatches(userMatches);
     } catch (error: any) {
       console.error("Error fetching matches:", error);

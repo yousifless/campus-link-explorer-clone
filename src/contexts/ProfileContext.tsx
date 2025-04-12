@@ -137,13 +137,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .eq('user_id', user.id);
 
         for (const lang of languages) {
-          // First check if lang exists and has the expected structure
           if (lang && typeof lang === 'object') {
-            // Type guard to ensure lang has an id property
             const langObj = lang as LanguageWithProficiency;
             
             if (langObj.id) {
-              // Define a safe proficiency value with fallback
               const proficiency = langObj.proficiency || 'beginner';
               
               await supabase
