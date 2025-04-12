@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { useMatching } from '@/contexts/MatchingContext';
+import { useMatching } from '@/contexts/matching';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Heart, X, Info, School, Globe, BookOpen, Users } from 'lucide-react';
