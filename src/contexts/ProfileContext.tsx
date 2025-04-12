@@ -129,12 +129,15 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .eq('user_id', user.id);
 
         for (const lang of languages) {
-          if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
-            // Get properties with null checks
-            const langId = lang?.id;
+          if (lang && typeof lang === 'object' && 'id' in lang) {
+            // Use type assertion with proper null checks
+            const langId = lang.id; // TypeScript will infer this exists due to 'id' in lang check
+            
             if (langId) {
-              // Extract proficiency with null check
-              const proficiency = lang?.proficiency ?? 'beginner';
+              // Safely access proficiency with fallback
+              const proficiency = ('proficiency' in lang && lang.proficiency) 
+                ? lang.proficiency 
+                : 'beginner';
               
               await supabase
                 .from('user_languages')
