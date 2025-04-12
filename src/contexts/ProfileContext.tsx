@@ -130,9 +130,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         for (const lang of languages) {
           if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
+            // Get properties with null checks
             const langId = lang?.id;
             if (langId) {
-              // Use optional chaining to safely access properties
+              // Extract proficiency with null check
               const proficiency = lang?.proficiency ?? 'beginner';
               
               await supabase
