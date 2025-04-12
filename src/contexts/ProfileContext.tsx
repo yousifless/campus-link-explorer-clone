@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -129,6 +130,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         for (const lang of languages) {
           if (lang && typeof lang === 'object' && 'id' in lang && 'proficiency' in lang) {
+            // Fixed null checks: add null/undefined checks for lang object
             const langId = lang?.id ?? '';
             const proficiency = lang?.proficiency ?? 'beginner';
             

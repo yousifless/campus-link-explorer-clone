@@ -72,6 +72,7 @@ export const useMatchOperations = (userId: string | undefined) => {
     }
   };
 
+  // Fixed type for matchUserId parameter to make it compatible with SuggestedMatchType.id
   const createMatch = async (matchUserId: string) => {
     try {
       setLoading(true);
