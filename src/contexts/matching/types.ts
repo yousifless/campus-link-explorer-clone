@@ -9,5 +9,5 @@ export type MatchingContextType = {
   fetchSuggestedMatches: () => Promise<void>;
   acceptMatch: (matchId: string) => Promise<void>;
   rejectMatch: (matchId: string) => Promise<void>;
-  createMatch: (userId: string) => Promise<void>;
+  createMatch: (matchUserId: string) => Promise<void>;
 };
