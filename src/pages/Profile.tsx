@@ -36,6 +36,7 @@ import { db } from '@/integrations/supabase/enhanced-client';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import ProfileCompletionIndicator from '@/components/profile/ProfileCompletionIndicator';
 import { motion } from 'framer-motion';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const studentTypes = [
   { label: 'International Student', value: 'international' },
