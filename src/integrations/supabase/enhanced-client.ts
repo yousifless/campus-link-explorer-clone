@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './types';
 
@@ -39,5 +40,9 @@ export const db = {
   campuses: () => supabase.from('campuses'),
   majors: () => supabase.from('majors'),
   interests: () => supabase.from('interests'),
-  languages: () => supabase.from('languages')
+  languages: () => supabase.from('languages'),
+  // Added new helper methods for deals and meetups
+  deals: () => supabase.from('deals'),
+  dealReviews: () => supabase.from('deal_reviews'),
+  meetups: () => supabase.from('meetups')
 };

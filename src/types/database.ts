@@ -132,5 +132,67 @@ export type UserLanguage = {
   proficiency: string;
 };
 
+// Deal types for the Local Deals feature
+export type DealType = {
+  id: string;
+  business_name: string;
+  category: string;
+  discount_percentage: number;
+  description: string;
+  expiration_date: string;
+  image_url: string | null;
+  location: string;
+  is_exclusive: boolean;
+  redemption_code: string;
+  average_rating: number;
+  review_count: number;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+};
+
+export type DealReviewType = {
+  id: string;
+  deal_id: string;
+  user_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  user?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+};
+
+// Meetup types for the Coffee Meetup Scheduler
+export type MeetupType = {
+  id: string;
+  creator_id: string;
+  invitee_id: string;
+  status: 'pending' | 'confirmed' | 'canceled' | 'completed';
+  proposed_date: string;
+  proposed_time: string;
+  location_name: string | null;
+  location_address: string | null;
+  notes: string | null;
+  created_at: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  creator?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+  invitee?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+};
+
 // Please note that this file is getting quite large and could be split into
 // multiple domain-specific type files in the future.

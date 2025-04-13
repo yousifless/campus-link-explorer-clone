@@ -22,6 +22,8 @@ import Chat from "./pages/Chat";
 import Matches from "./pages/Matches";
 import Notifications from "./pages/Notifications";
 import ChatConversation from "./pages/ChatConversation";
+import Deals from "./pages/Deals";
+import Meetups from "./pages/Meetups";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +48,8 @@ const App = () => (
                       <Route path="/chat" element={<PrivateRoute component={Chat} />} />
                       <Route path="/chat/:id" element={<PrivateRoute component={ChatConversation} />} />
                       <Route path="/notifications" element={<PrivateRoute component={Notifications} />} />
+                      <Route path="/deals" element={<PrivateRoute component={Deals} />} />
+                      <Route path="/meetups" element={<PrivateRoute component={Meetups} />} />
                     </Route>
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<SignUp />} />
