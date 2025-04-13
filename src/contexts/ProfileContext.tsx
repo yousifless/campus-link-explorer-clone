@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -54,14 +53,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (languagesError) throw languagesError;
 
-      const interests = userInterestsData?.map((i: any) => 
-        i.interests?.name || ''
-      ).filter(Boolean) || [];
-      
-      const languages = userLanguagesData?.map((l: any) => 
-        l.languages?.name || ''
-      ) || [];
-
       let universityName = null;
       if (data?.campus_id) {
         const { data: campusData, error: campusError } = await supabase
@@ -81,8 +72,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       setProfile({
         ...data,
-        interests,
-        languages,
+        interests: userInterestsData?.map((i: any) => i.interests?.name || '').filter(Boolean) || [],
+        languages: userLanguagesData?.map((l: any) => l.languages?.name || '') || [],
         university: universityName,
         student_type: studentType,
         is_verified: data?.is_verified || false
