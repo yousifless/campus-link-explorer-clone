@@ -80,7 +80,7 @@ export type ProfileType = {
   id: string;
   first_name: string | null;
   last_name: string | null;
-  nickname: string | null;  // Make sure this property exists
+  nickname: string | null;
   university: string | null;
   campus_id: string | null;
   major_id: string | null;
@@ -92,7 +92,7 @@ export type ProfileType = {
   is_verified: boolean;
   interests: string[] | null;
   languages: string[] | null;
-  cultural_insight: string | null;  // Make sure this property exists
+  cultural_insight: string | null;
 };
 
 export type University = {

@@ -71,16 +71,20 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ? data.student_type 
         : null;
 
-      setProfile({
+      // Create a profile object with all necessary fields, including nickname and cultural_insight
+      const profileData: ProfileType = {
         ...data,
         interests: userInterestsData?.map((i: any) => i.interests?.name || '').filter(Boolean) || [],
         languages: userLanguagesData?.map((l: any) => l.languages?.name || '') || [],
         university: universityName,
         student_type: studentType,
         is_verified: data?.is_verified || false,
+        // Ensure these fields are present, even if null
         nickname: data?.nickname || null,
         cultural_insight: data?.cultural_insight || null
-      } as ProfileType);
+      };
+
+      setProfile(profileData);
     } catch (error: any) {
       toast({
         title: "Error fetching profile",

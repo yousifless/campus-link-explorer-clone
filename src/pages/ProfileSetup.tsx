@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -13,17 +14,11 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/integrations/supabase/enhanced-client';
-
-const studentTypes = [
-  { label: 'International Student', value: 'international' },
-  { label: 'Local Student', value: 'local' },
-];
+import { PersonalInfoFields, BioFields, AcademicFields, NationalityField } from '@/components/profile/ProfileFormFields';
+import { University, Major } from '@/types/database';
 
 const formSchema = z.object({
   university: z.string().min(1, {
@@ -35,10 +30,10 @@ const formSchema = z.object({
   major: z.string().min(1, {
     message: 'Please select your major.',
   }),
-  studentType: z.string().min(1, {
+  student_type: z.string().min(1, {
     message: 'Please select your student type.',
   }),
-  yearOfStudy: z.string().min(1, {
+  year_of_study: z.string().min(1, {
     message: 'Please select your year of study.',
   }),
   nationality: z.string().min(1, {
@@ -48,38 +43,28 @@ const formSchema = z.object({
     message: 'Bio must be at least 10 characters.',
   }).max(500, {
     message: 'Bio must not exceed 500 characters.',
-  })
+  }),
+  nickname: z.string().optional(),
+  first_name: z.string().min(1, { message: 'First name is required' }),
+  last_name: z.string().min(1, { message: 'Last name is required' }),
+  cultural_insight: z.string().max(300, { message: 'Cultural insight must not exceed 300 characters' }).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-type University = {
-  id: string;
-  name: string;
-  location: string;
-  type: string;
-};
-
-type Campus = {
-  id: string;
-  university_id: string;
-  name: string;
-  address: string;
-};
-
-type Major = {
-  id: string;
-  name: string;
-  field_of_study: string;
-};
 
 const ProfileSetup = () => {
   const { updateProfile, loading } = useProfile();
   const navigate = useNavigate();
   const [universities, setUniversities] = useState<University[]>([]);
-  const [campuses, setCampuses] = useState<Campus[]>([]);
   const [majors, setMajors] = useState<Major[]>([]);
   const [selectedUniversityId, setSelectedUniversityId] = useState<string>('');
+  const [bioPrompts, setBioPrompts] = useState<string[]>([
+    "What are your hobbies?",
+    "What are you studying and why?",
+    "What's your favorite place in Japan?",
+    "What's a cultural experience you'd like to share?",
+    "What kind of friends are you looking for?"
+  ]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -87,68 +72,41 @@ const ProfileSetup = () => {
       university: '',
       campus: '',
       major: '',
-      studentType: '',
-      yearOfStudy: '',
+      student_type: '',
+      year_of_study: '',
       nationality: '',
       bio: '',
+      nickname: '',
+      first_name: '',
+      last_name: '',
+      cultural_insight: '',
     },
   });
 
-  // Fetch universities
+  // Fetch universities and majors
   useEffect(() => {
-    const fetchUniversities = async () => {
-      const { data, error } = await db.universities()
-        .select('*')
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching universities:', error);
-        return;
+    const fetchData = async () => {
+      try {
+        const { data: univData, error: univError } = await db.universities()
+          .select('*')
+          .order('name');
+        
+        if (univError) throw univError;
+        setUniversities(univData as University[]);
+
+        const { data: majorsData, error: majorsError } = await db.majors()
+          .select('*')
+          .order('name');
+        
+        if (majorsError) throw majorsError;
+        setMajors(majorsData as Major[]);
+      } catch (error) {
+        console.error('Error fetching data:', error);
       }
-      
-      setUniversities(data as University[]);
     };
 
-    const fetchMajors = async () => {
-      const { data, error } = await db.majors()
-        .select('*')
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching majors:', error);
-        return;
-      }
-      
-      setMajors(data as Major[]);
-    };
-
-    fetchUniversities();
-    fetchMajors();
+    fetchData();
   }, []);
-
-  // Fetch campuses when university is selected
-  useEffect(() => {
-    if (!selectedUniversityId) {
-      setCampuses([]);
-      return;
-    }
-
-    const fetchCampuses = async () => {
-      const { data, error } = await db.campuses()
-        .select('*')
-        .eq('university_id', selectedUniversityId)
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching campuses:', error);
-        return;
-      }
-      
-      setCampuses(data as Campus[]);
-    };
-
-    fetchCampuses();
-  }, [selectedUniversityId]);
 
   const onUniversityChange = (value: string) => {
     setSelectedUniversityId(value);
@@ -156,17 +114,23 @@ const ProfileSetup = () => {
     form.setValue('campus', '');
   };
 
+  const handleBioPromptSelect = (prompt: string) => {
+    const currentBio = form.getValues('bio') || '';
+    form.setValue('bio', currentBio ? `${currentBio}\n\n${prompt}` : prompt);
+  };
+
   async function onSubmit(values: FormValues) {
-    // Get campus object
-    const selectedCampus = campuses.find(c => c.id === values.campus);
-    
     await updateProfile({
+      nickname: values.nickname,
+      first_name: values.first_name,
+      last_name: values.last_name,
       campus_id: values.campus,
       major_id: values.major,
-      student_type: values.studentType as 'international' | 'local',
-      year_of_study: parseInt(values.yearOfStudy),
+      student_type: values.student_type as 'international' | 'local',
+      year_of_study: parseInt(values.year_of_study),
       nationality: values.nationality,
       bio: values.bio,
+      cultural_insight: values.cultural_insight,
     });
 
     navigate('/profile');
@@ -184,175 +148,39 @@ const ProfileSetup = () => {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="university"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>University</FormLabel>
-                      <Select 
-                        onValueChange={onUniversityChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select university" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {universities.map((university) => (
-                            <SelectItem key={university.id} value={university.id}>
-                              {university.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Personal Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Personal Information</h3>
+                <PersonalInfoFields form={form} />
+              </div>
 
-                <FormField
-                  control={form.control}
-                  name="campus"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Campus</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        disabled={!selectedUniversityId}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select campus" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {campuses.map((campus) => (
-                            <SelectItem key={campus.id} value={campus.id}>
-                              {campus.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              {/* Bio Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">About You</h3>
+                <BioFields 
+                  form={form} 
+                  bioPrompts={bioPrompts}
+                  handleBioPromptSelect={handleBioPromptSelect}
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="major"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Major</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select major" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {majors.map((major) => (
-                            <SelectItem key={major.id} value={major.id}>
-                              {major.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="studentType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Student Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select student type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {studentTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              {/* Academic Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Academic Information</h3>
+                <AcademicFields 
+                  form={form}
+                  universities={universities}
+                  majors={majors}
+                  selectedUniversityId={selectedUniversityId}
+                  onUniversityChange={onUniversityChange}
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="yearOfStudy"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year of Study</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select year" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {[1, 2, 3, 4, 5, 6].map((year) => (
-                            <SelectItem key={year} value={year.toString()}>
-                              Year {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="nationality"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nationality</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Japanese, American, etc." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Nationality Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Nationality</h3>
+                <NationalityField form={form} />
               </div>
-
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bio</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Tell us about yourself, your interests, and what you're looking for in connections..." 
-                        className="min-h-[120px]"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <Button 
                 type="submit" 

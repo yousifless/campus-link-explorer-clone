@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './types';
 
@@ -8,6 +7,24 @@ const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 // Create a strongly typed client
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+
+// Enhance the profiles table type to include nickname and cultural_insight
+export type ProfileRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  nickname: string | null;
+  university: string | null;
+  campus_id: string | null;
+  major_id: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  student_type: 'international' | 'local' | null;
+  year_of_study: number | null;
+  nationality: string | null;
+  is_verified: boolean;
+  cultural_insight: string | null;
+};
 
 // Create a db object that provides helper methods for common database operations
 export const db = {
