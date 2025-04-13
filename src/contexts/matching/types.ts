@@ -29,6 +29,6 @@ export interface MatchingContextType {
   fetchSuggestedMatches?: () => Promise<void>;
   acceptMatch: (matchId: string) => Promise<void>;
   rejectMatch: (matchId: string) => Promise<void>;
-  updateMatchStatus: (matchId: string, status: string) => Promise<void>;
+  updateMatchStatus: (matchId: string, status: MatchStatus) => Promise<void>;
   createMatch: (userId: string) => Promise<void>;
 }

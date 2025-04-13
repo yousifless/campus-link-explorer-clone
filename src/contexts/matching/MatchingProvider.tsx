@@ -21,7 +21,7 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     rejectMatch,
     updateMatchStatus,
     createMatch 
-  } = useMatchOperations(user?.id);
+  } = useMatchOperations();
 
   useEffect(() => {
     if (user) {

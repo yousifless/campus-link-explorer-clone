@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -76,7 +77,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         languages: userLanguagesData?.map((l: any) => l.languages?.name || '') || [],
         university: universityName,
         student_type: studentType,
-        is_verified: data?.is_verified || false
+        is_verified: data?.is_verified || false,
+        nickname: data?.nickname || null,
+        cultural_insight: data?.cultural_insight || null
       } as ProfileType);
     } catch (error: any) {
       toast({

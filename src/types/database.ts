@@ -1,3 +1,4 @@
+
 // Extended database types to complement the auto-generated Supabase types
 export type MatchType = {
   id: string;
@@ -79,6 +80,7 @@ export type ProfileType = {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  nickname: string | null;  // Added nickname property
   university: string | null;
   campus_id: string | null;
   major_id: string | null;
@@ -90,6 +92,7 @@ export type ProfileType = {
   is_verified: boolean;
   interests: string[] | null;
   languages: string[] | null;
+  cultural_insight: string | null;  // Added cultural_insight property
 };
 
 export type University = {

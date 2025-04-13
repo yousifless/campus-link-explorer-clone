@@ -1,12 +1,116 @@
 
-// Let's fix the TypeScript error related to the status parameter
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { MatchType } from './types';
+import { MatchType, MatchStatus } from './types';
 
 export const useMatchOperations = () => {
   const { user } = useAuth();
+  const [matches, setMatches] = useState<MatchType[]>([]);
+  const [possibleMatches, setPossibleMatches] = useState<MatchType[]>([]);
+  const [myPendingMatches, setMyPendingMatches] = useState<MatchType[]>([]);
+  const [theirPendingMatches, setTheirPendingMatches] = useState<MatchType[]>([]);
+  const [suggestedMatches, setSuggestedMatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const fetchMatches = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Get all matches where the user is either user1 or user2
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+
+      if (error) throw error;
+
+      // Process the matches to categorize them
+      const matchesWithOtherUser = await Promise.all(
+        (data || []).map(async (match) => {
+          const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+          
+          // Get the other user's profile
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', otherUserId)
+            .single();
+            
+          return {
+            ...match,
+            otherUser: profileData,
+          } as MatchType;
+        })
+      );
+
+      // Sort and categorize matches
+      const acceptedMatches = matchesWithOtherUser.filter(m => m.status === 'accepted');
+      const pendingMatches = matchesWithOtherUser.filter(m => m.status === 'pending');
+      
+      // Pending matches that I initiated
+      const myPending = pendingMatches.filter(m => 
+        (m.user1_id === user.id && m.user1_status === 'accepted') || 
+        (m.user2_id === user.id && m.user2_status === 'accepted')
+      );
+      
+      // Pending matches that others initiated
+      const theirPending = pendingMatches.filter(m => 
+        (m.user1_id === user.id && m.user1_status === 'pending') || 
+        (m.user2_id === user.id && m.user2_status === 'pending')
+      );
+
+      setMatches(matchesWithOtherUser);
+      setPossibleMatches(acceptedMatches);
+      setMyPendingMatches(myPending);
+      setTheirPendingMatches(theirPending);
+    } catch (error: any) {
+      toast({
+        title: 'Error fetching matches',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSuggestedMatches = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // This would usually be a complex query to find potential matches
+      // For now, we'll simulate it with basic profile fetching
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', user.id)
+        .limit(10);
+
+      if (error) throw error;
+
+      // Transform the data to match the expected format
+      const suggestedData = data.map(profile => ({
+        ...profile,
+        common_interests: Math.floor(Math.random() * 5),
+        common_languages: Math.floor(Math.random() * 3),
+        match_score: Math.floor(Math.random() * 100)
+      }));
+
+      setSuggestedMatches(suggestedData);
+    } catch (error: any) {
+      toast({
+        title: 'Error fetching suggested matches',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const createMatch = async (matchUserId: string) => {
     if (!user) return;
@@ -47,6 +151,9 @@ export const useMatchOperations = () => {
         title: 'Match created',
         description: 'You have successfully sent a match request',
       });
+      
+      // Refresh matches
+      await fetchMatches();
     } catch (error: any) {
       toast({
         title: 'Error creating match',
@@ -60,13 +167,15 @@ export const useMatchOperations = () => {
     if (!user) return;
 
     try {
-      // Fix: Change 'accept' string to explicit typing
       await updateMatchStatus(matchId, 'accepted');
 
       toast({
         title: 'Match accepted',
         description: 'You have successfully accepted the match',
       });
+      
+      // Refresh matches
+      await fetchMatches();
     } catch (error: any) {
       toast({
         title: 'Error accepting match',
@@ -80,13 +189,15 @@ export const useMatchOperations = () => {
     if (!user) return;
 
     try {
-      // Fix: Change 'reject' string to explicit typing
       await updateMatchStatus(matchId, 'rejected');
 
       toast({
         title: 'Match rejected',
         description: 'You have successfully rejected the match',
       });
+      
+      // Refresh matches
+      await fetchMatches();
     } catch (error: any) {
       toast({
         title: 'Error rejecting match',
@@ -96,7 +207,7 @@ export const useMatchOperations = () => {
     }
   };
 
-  const updateMatchStatus = async (matchId: string, status: string) => {
+  const updateMatchStatus = async (matchId: string, status: MatchStatus) => {
     if (!user) return;
 
     try {
@@ -140,5 +251,18 @@ export const useMatchOperations = () => {
     }
   };
 
-  return { createMatch, acceptMatch, rejectMatch, updateMatchStatus };
+  return { 
+    matches, 
+    possibleMatches, 
+    myPendingMatches, 
+    theirPendingMatches, 
+    suggestedMatches, 
+    loading, 
+    fetchMatches, 
+    fetchSuggestedMatches, 
+    createMatch, 
+    acceptMatch, 
+    rejectMatch, 
+    updateMatchStatus 
+  };
 };
