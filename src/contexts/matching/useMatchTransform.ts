@@ -1,5 +1,5 @@
 
-import { MatchType } from '@/types/database';
+import { MatchType } from './types';
 
 export const useMatchTransform = () => {
   const transformMatchData = (rawMatches: any[], userId: string): MatchType[] => {
@@ -22,6 +22,7 @@ export const useMatchTransform = () => {
         user2_status: match.user2_status,
         created_at: match.created_at,
         updated_at: match.updated_at,
+        initiator_id: match.initiator_id || match.user1_id, // Use user1_id as fallback
         otherUser: {
           id: otherUserId,
           first_name: otherUserProfile.first_name || '',

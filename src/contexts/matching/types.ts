@@ -10,7 +10,7 @@ export interface MatchType {
   user1_id: string;
   user2_id: string;
   status: MatchStatus;
-  initiator_id: string;
+  initiator_id?: string; // Made optional since it may not be present in all cases
   user1_status: string;
   user2_status: string;
   user1?: ProfileType;

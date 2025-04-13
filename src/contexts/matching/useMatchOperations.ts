@@ -1,7 +1,8 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MatchType, SuggestedMatchType } from '@/types/database';
+import { SuggestedMatchType } from '@/types/database';
+import { MatchType } from './types';
 import { useMatchTransform } from './useMatchTransform';
 
 export const useMatchOperations = (userId: string | undefined) => {
