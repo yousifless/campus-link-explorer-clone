@@ -10,6 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 const MatchCard = ({ match, onLike, onSkip }) => {
+  // Get initials safely, handling null values
+  const getInitials = () => {
+    const firstName = match.first_name || '';
+    const lastName = match.last_name || '';
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto overflow-hidden shadow-lg">
       <CardHeader className="p-0">
@@ -18,12 +25,12 @@ const MatchCard = ({ match, onLike, onSkip }) => {
             {match.avatar_url ? (
               <img 
                 src={match.avatar_url} 
-                alt={`${match.first_name} ${match.last_name}`} 
+                alt={`${match.first_name || 'User'} ${match.last_name || ''}`} 
                 className="h-full w-full object-cover"
               />
             ) : (
               <div className="flex flex-col items-center justify-center p-4 text-center">
-                <span className="text-6xl font-bold">{match.first_name.charAt(0)}{match.last_name.charAt(0)}</span>
+                <span className="text-6xl font-bold">{getInitials()}</span>
               </div>
             )}
           </div>
@@ -33,7 +40,7 @@ const MatchCard = ({ match, onLike, onSkip }) => {
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-2xl font-bold">
-              {match.first_name} {match.last_name}
+              {match.first_name || 'User'} {match.last_name || ''}
             </h2>
             {match.student_type && (
               <Badge className="mt-1">
@@ -49,7 +56,7 @@ const MatchCard = ({ match, onLike, onSkip }) => {
             </SheetTrigger>
             <SheetContent>
               <SheetHeader>
-                <SheetTitle>{match.first_name} {match.last_name}</SheetTitle>
+                <SheetTitle>{match.first_name || 'User'} {match.last_name || ''}</SheetTitle>
                 <SheetDescription>
                   {match.bio || "No bio provided."}
                 </SheetDescription>
