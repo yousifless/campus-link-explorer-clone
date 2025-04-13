@@ -151,14 +151,43 @@ export const useMatchOperations = (userId: string | undefined) => {
     }
   };
 
+  const updateMatchStatus = async (matchId: string, status: string) => {
+    try {
+      setLoading(true);
+      if (!userId) return;
+
+      const { error } = await supabase
+        .from('matches')
+        .update({ status })
+        .eq('id', matchId);
+
+      if (error) throw error;
+
+      await fetchMatches();
+    } catch (error: any) {
+      console.error("Error updating match status:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Derive the filtered matches
+  const possibleMatches = matches.filter(match => match.status !== 'accepted' && match.status !== 'rejected');
+  const myPendingMatches = matches.filter(match => match.status === 'pending' && match.user1_id === userId);
+  const theirPendingMatches = matches.filter(match => match.status === 'pending' && match.user2_id === userId);
+
   return {
     matches,
+    possibleMatches,
+    myPendingMatches,
+    theirPendingMatches,
     suggestedMatches,
     loading,
     fetchMatches,
     fetchSuggestedMatches,
     acceptMatch,
     rejectMatch,
+    updateMatchStatus,
     createMatch,
   };
 };

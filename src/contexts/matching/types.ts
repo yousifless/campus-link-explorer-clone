@@ -1,5 +1,5 @@
 
-import { ProfileType } from '@/types/database';
+import { ProfileType, SuggestedMatchType } from '@/types/database';
 
 export type MatchStatus = 'pending' | 'accepted' | 'rejected';
 
@@ -15,7 +15,7 @@ export interface MatchType {
   user2_status: string;
   user1?: ProfileType;
   user2?: ProfileType;
-  otherUser: any; // Add the missing property
+  otherUser: any; // This contains the other user's profile data
 }
 
 export interface MatchingContextType {
@@ -23,10 +23,10 @@ export interface MatchingContextType {
   possibleMatches: MatchType[];
   myPendingMatches: MatchType[];
   theirPendingMatches: MatchType[];
-  suggestedMatches?: any[]; // Add suggestedMatches property
+  suggestedMatches?: SuggestedMatchType[]; // Using the proper type from database.ts
   loading: boolean;
   fetchMatches: () => Promise<void>;
-  fetchSuggestedMatches?: () => Promise<void>; // Add fetchSuggestedMatches property
+  fetchSuggestedMatches?: () => Promise<void>;
   acceptMatch: (matchId: string) => Promise<void>;
   rejectMatch: (matchId: string) => Promise<void>;
   updateMatchStatus: (matchId: string, status: string) => Promise<void>;

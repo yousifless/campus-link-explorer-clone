@@ -9,31 +9,39 @@ const MatchingContext = createContext<MatchingContextType | undefined>(undefined
 export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const { 
-    matches, 
+    matches,
+    possibleMatches,
+    myPendingMatches,
+    theirPendingMatches,
     suggestedMatches, 
     loading, 
     fetchMatches, 
     fetchSuggestedMatches, 
     acceptMatch, 
-    rejectMatch, 
+    rejectMatch,
+    updateMatchStatus,
     createMatch 
   } = useMatchOperations(user?.id);
 
   useEffect(() => {
     if (user) {
       fetchMatches();
-      fetchSuggestedMatches();
+      fetchSuggestedMatches && fetchSuggestedMatches();
     }
   }, [user, fetchMatches, fetchSuggestedMatches]);
 
   const value = {
     matches,
+    possibleMatches,
+    myPendingMatches,
+    theirPendingMatches,
     suggestedMatches,
     loading,
     fetchMatches,
     fetchSuggestedMatches,
     acceptMatch,
     rejectMatch,
+    updateMatchStatus,
     createMatch,
   };
 
