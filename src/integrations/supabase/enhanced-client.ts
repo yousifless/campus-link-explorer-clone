@@ -14,7 +14,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
       // Add a small delay between requests to prevent resource exhaustion
       return new Promise(resolve => {
         setTimeout(() => {
-          resolve(fetch(...args));
+          resolve(fetch(args[0], args[1]));
         }, 50);
       });
     }

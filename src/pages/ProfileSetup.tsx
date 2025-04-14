@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -19,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/integrations/supabase/enhanced-client';
 import { PersonalInfoFields, BioFields, AcademicFields, NationalityField } from '@/components/profile/ProfileFormFields';
 import { University, Major } from '@/types/database';
+import { convertToUniversities, convertToMajors } from '@/utils/dataConverters';
 
 const formSchema = z.object({
   university: z.string().min(1, {
@@ -83,7 +83,6 @@ const ProfileSetup = () => {
     },
   });
 
-  // Fetch universities and majors
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -92,14 +91,14 @@ const ProfileSetup = () => {
           .order('name');
         
         if (univError) throw univError;
-        setUniversities(univData as University[]);
+        setUniversities(convertToUniversities(univData));
 
         const { data: majorsData, error: majorsError } = await db.majors()
           .select('*')
           .order('name');
         
         if (majorsError) throw majorsError;
-        setMajors(majorsData as Major[]);
+        setMajors(convertToMajors(majorsData));
       } catch (error) {
         console.error('Error fetching data:', error);
       }
