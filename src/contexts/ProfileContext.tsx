@@ -121,9 +121,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         university: universityName,
         student_type: studentType,
         is_verified: data?.is_verified || false,
-        // Use type assertion to handle these fields
-        nickname: (data as any)?.nickname || null,
-        cultural_insight: (data as any)?.cultural_insight || null
+        nickname: data?.nickname || null,
+        cultural_insight: data?.cultural_insight || null
       };
 
       setProfile(profileData);
@@ -139,7 +138,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user, lastFetchTime]);
 
-  // Function that handles updating a profile
   const updateProfile = async (updates: Partial<ProfileType>) => {
     try {
       setLoading(true);
@@ -147,10 +145,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       const { interests, languages, ...profileUpdates } = updates;
       
+      // Include nickname and cultural_insight in profile updates
+      const { nickname, cultural_insight, ...otherUpdates } = profileUpdates;
+      
       // Update profile with better error handling
       const { error } = await supabase
         .from('profiles')
-        .update(profileUpdates)
+        .update({
+          nickname,
+          cultural_insight,
+          ...otherUpdates
+        })
         .eq('id', user.id);
 
       if (error) {

@@ -246,6 +246,7 @@ export type Database = {
           bio: string | null
           campus_id: string | null
           created_at: string
+          cultural_insight: string | null
           first_name: string | null
           id: string
           interests: string[] | null
@@ -255,6 +256,7 @@ export type Database = {
           major: string | null
           major_id: string | null
           nationality: string | null
+          nickname: string | null
           student_type: string | null
           university: string | null
           updated_at: string
@@ -265,6 +267,7 @@ export type Database = {
           bio?: string | null
           campus_id?: string | null
           created_at?: string
+          cultural_insight?: string | null
           first_name?: string | null
           id: string
           interests?: string[] | null
@@ -274,6 +277,7 @@ export type Database = {
           major?: string | null
           major_id?: string | null
           nationality?: string | null
+          nickname?: string | null
           student_type?: string | null
           university?: string | null
           updated_at?: string
@@ -284,6 +288,7 @@ export type Database = {
           bio?: string | null
           campus_id?: string | null
           created_at?: string
+          cultural_insight?: string | null
           first_name?: string | null
           id?: string
           interests?: string[] | null
@@ -293,6 +298,7 @@ export type Database = {
           major?: string | null
           major_id?: string | null
           nationality?: string | null
+          nickname?: string | null
           student_type?: string | null
           university?: string | null
           updated_at?: string
