@@ -79,9 +79,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         university: universityName,
         student_type: studentType,
         is_verified: data?.is_verified || false,
-        // Ensure these fields are present, even if null
-        nickname: data?.nickname || null,
-        cultural_insight: data?.cultural_insight || null
+        // Use type assertion to handle these fields
+        nickname: (data as any)?.nickname || null,
+        cultural_insight: (data as any)?.cultural_insight || null
       };
 
       setProfile(profileData);

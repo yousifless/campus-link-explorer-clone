@@ -41,8 +41,9 @@ export const db = {
   majors: () => supabase.from('majors'),
   interests: () => supabase.from('interests'),
   languages: () => supabase.from('languages'),
-  // Added new helper methods for deals and meetups
-  deals: () => supabase.from('deals'),
-  dealReviews: () => supabase.from('deal_reviews'),
-  meetups: () => supabase.from('meetups')
+  // For now, we'll use the generic version of the from method for tables that aren't in the types yet
+  // This is a temporary solution until we update the Supabase schema
+  deals: () => supabase.from('deals' as any),
+  dealReviews: () => supabase.from('deal_reviews' as any),
+  meetups: () => supabase.from('meetups' as any)
 };
