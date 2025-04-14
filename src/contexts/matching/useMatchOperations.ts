@@ -19,7 +19,7 @@ export const useMatchOperations = () => {
 
   // Helper function to wrap async operations with proper error handling
   const safeAsyncOperation = async <T,>(
-    operation: () => Promise<{ data: T | null; error: PostgrestError | null }>, 
+    operation: () => Promise<{ data: T | null; error: PostgrestError | null }>,
     errorMsg: string
   ): Promise<{ data: T | null; error: PostgrestError | null }> => {
     try {
@@ -130,7 +130,7 @@ export const useMatchOperations = () => {
         return;
       }
 
-      // Get the current user's interests with proper error handling
+      // Get the current user's interests
       const interestsResult = await safeAsyncOperation(
         () => db.userInterests().select('interest_id').eq('user_id', user.id),
         'Error fetching user interests'
@@ -142,7 +142,7 @@ export const useMatchOperations = () => {
         userInterestIds = interestsResult.data.map(ui => ui.interest_id);
       }
 
-      // Get the current user's languages with proper error handling
+      // Get the current user's languages
       const languagesResult = await safeAsyncOperation(
         () => db.userLanguages().select('language_id').eq('user_id', user.id),
         'Error fetching user languages'
@@ -162,7 +162,7 @@ export const useMatchOperations = () => {
           break;
         }
         
-        // Get this profile's interests with proper error handling
+        // Get this profile's interests
         const profileInterestsResult = await safeAsyncOperation(
           () => db.userInterests().select('interest_id').eq('user_id', profile.id),
           `Error fetching interests for user ${profile.id}`
@@ -172,7 +172,7 @@ export const useMatchOperations = () => {
           ? profileInterestsResult.data.map(pi => pi.interest_id) 
           : [];
         
-        // Get this profile's languages with proper error handling
+        // Get this profile's languages
         const profileLanguagesResult = await safeAsyncOperation(
           () => db.userLanguages().select('language_id').eq('user_id', profile.id),
           `Error fetching languages for user ${profile.id}`
