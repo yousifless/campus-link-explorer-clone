@@ -20,6 +20,7 @@ export const useMatchOperations = () => {
     setLoading(true);
     try {
       // Get all matches where the user is either user1 or user2
+      // Use string interpolation for the OR condition to avoid the foreign key error
       const { data, error } = await supabase
         .from('matches')
         .select('*')
@@ -67,6 +68,7 @@ export const useMatchOperations = () => {
       setMyPendingMatches(myPending);
       setTheirPendingMatches(theirPending);
     } catch (error: any) {
+      console.error('Error fetching matches:', error);
       toast({
         title: 'Error fetching matches',
         description: error.message,
@@ -82,26 +84,58 @@ export const useMatchOperations = () => {
     
     setLoading(true);
     try {
-      // This would usually be a complex query to find potential matches
-      // For now, we'll simulate it with basic profile fetching
+      // Get a limited number of profiles that are not the current user
+      // This is a simplified suggestion algorithm without creating test users
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, user_interests!inner(interest_id, interests(*)), user_languages!inner(language_id, languages(*))')
         .neq('id', user.id)
+        .order('created_at', { ascending: false })
         .limit(10);
 
       if (error) throw error;
 
-      // Transform the data to match the expected format
-      const suggestedData = data.map(profile => ({
-        ...profile,
-        common_interests: Math.floor(Math.random() * 5),
-        common_languages: Math.floor(Math.random() * 3),
-        match_score: Math.floor(Math.random() * 100)
-      }));
+      // Get the current user's interests and languages
+      const { data: userInterests } = await supabase
+        .from('user_interests')
+        .select('interest_id')
+        .eq('user_id', user.id);
+
+      const { data: userLanguages } = await supabase
+        .from('user_languages')
+        .select('language_id')
+        .eq('user_id', user.id);
+
+      // Process the suggested matches with genuine match scores
+      const suggestedData = data.map(profile => {
+        // Calculate common interests
+        const profileInterests = profile.user_interests?.map(ui => ui.interest_id) || [];
+        const userInterestIds = userInterests?.map(ui => ui.interest_id) || [];
+        const commonInterests = profileInterests.filter(id => 
+          userInterestIds.includes(id)
+        ).length;
+
+        // Calculate common languages
+        const profileLanguages = profile.user_languages?.map(ul => ul.language_id) || [];
+        const userLanguageIds = userLanguages?.map(ul => ul.language_id) || [];
+        const commonLanguages = profileLanguages.filter(id => 
+          userLanguageIds.includes(id)
+        ).length;
+
+        // Calculate match score based on common interests and languages
+        const matchScore = (commonInterests * 10) + (commonLanguages * 15);
+
+        return {
+          ...profile,
+          common_interests: commonInterests,
+          common_languages: commonLanguages,
+          match_score: matchScore
+        };
+      }).sort((a, b) => b.match_score - a.match_score); // Sort by match score
 
       setSuggestedMatches(suggestedData);
     } catch (error: any) {
+      console.error('Error fetching suggested matches:', error);
       toast({
         title: 'Error fetching suggested matches',
         description: error.message,
@@ -120,8 +154,7 @@ export const useMatchOperations = () => {
       const { data: existingMatch } = await supabase
         .from('matches')
         .select('*')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .or(`user1_id.eq.${matchUserId},user2_id.eq.${matchUserId}`)
+        .or(`and(user1_id.eq.${user.id},user2_id.eq.${matchUserId}),and(user1_id.eq.${matchUserId},user2_id.eq.${user.id})`)
         .limit(1);
 
       if (existingMatch && existingMatch.length > 0) {
@@ -133,17 +166,15 @@ export const useMatchOperations = () => {
         return;
       }
 
-      // Create new match
-      const { error } = await supabase.from('matches').insert([
-        {
-          user1_id: user.id,
-          user2_id: matchUserId,
-          status: 'pending',
-          user1_status: 'accepted',
-          user2_status: 'pending',
-          initiator_id: user.id,
-        },
-      ]);
+      // Create new match with better error handling
+      const { error } = await supabase.from('matches').insert({
+        user1_id: user.id,
+        user2_id: matchUserId,
+        status: 'pending',
+        user1_status: 'accepted',
+        user2_status: 'pending',
+        initiator_id: user.id,
+      });
 
       if (error) throw error;
 
@@ -155,6 +186,7 @@ export const useMatchOperations = () => {
       // Refresh matches
       await fetchMatches();
     } catch (error: any) {
+      console.error('Error creating match:', error);
       toast({
         title: 'Error creating match',
         description: error.message,
@@ -247,6 +279,7 @@ export const useMatchOperations = () => {
 
       if (updateError) throw updateError;
     } catch (error: any) {
+      console.error('Error updating match status:', error);
       throw error;
     }
   };

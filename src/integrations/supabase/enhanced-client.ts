@@ -8,8 +8,8 @@ const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   global: {
     fetch: async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      // Add a more robust delay mechanism with randomized jitter
-      const delay = Math.floor(Math.random() * 100) + 50; // Random delay between 50-150ms
+      // Add an adaptive backoff mechanism with randomized jitter to prevent rate limiting
+      const delay = Math.floor(Math.random() * 150) + 100; // Random delay between 100-250ms
       await new Promise(resolve => setTimeout(resolve, delay));
       
       try {

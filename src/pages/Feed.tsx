@@ -134,21 +134,31 @@ const Feed = () => {
   const { suggestedMatches, fetchSuggestedMatches, createMatch, loading } = useMatching();
   const { profile } = useProfile();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [processingAction, setProcessingAction] = useState(false);
 
   useEffect(() => {
-    fetchSuggestedMatches();
-  }, [fetchSuggestedMatches]);
+    if (profile) {
+      fetchSuggestedMatches();
+    }
+  }, [fetchSuggestedMatches, profile]);
 
   const handleLike = async () => {
-    if (currentIndex >= suggestedMatches.length) return;
+    if (currentIndex >= suggestedMatches.length || processingAction) return;
     
-    const match = suggestedMatches[currentIndex];
-    await createMatch(match.id);
-    setCurrentIndex(currentIndex + 1);
+    try {
+      setProcessingAction(true);
+      const match = suggestedMatches[currentIndex];
+      await createMatch(match.id);
+      setCurrentIndex(currentIndex + 1);
+    } catch (error) {
+      console.error('Error liking match:', error);
+    } finally {
+      setProcessingAction(false);
+    }
   };
 
   const handleSkip = () => {
-    if (currentIndex >= suggestedMatches.length) return;
+    if (currentIndex >= suggestedMatches.length || processingAction) return;
     setCurrentIndex(currentIndex + 1);
   };
 
@@ -196,7 +206,12 @@ const Feed = () => {
       <div className="container mx-auto max-w-md px-4 py-8 text-center">
         <h2 className="text-2xl font-bold mb-4">No More Matches</h2>
         <p className="mb-6">We're currently out of potential matches for you. Check back later!</p>
-        <Button onClick={() => fetchSuggestedMatches()}>Refresh</Button>
+        <Button onClick={() => {
+          setCurrentIndex(0);
+          fetchSuggestedMatches();
+        }}>
+          Refresh
+        </Button>
       </div>
     );
   }
