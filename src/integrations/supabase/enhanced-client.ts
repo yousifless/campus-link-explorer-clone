@@ -10,11 +10,11 @@ const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   // Set limits on concurrent requests to prevent ERR_INSUFFICIENT_RESOURCES
   global: {
-    fetch: (...args) => {
+    fetch: (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       // Add a small delay between requests to prevent resource exhaustion
       return new Promise(resolve => {
         setTimeout(() => {
-          resolve(fetch(args[0], args[1]));
+          resolve(fetch(input, init));
         }, 50);
       });
     }
