@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { MatchType, MatchStatus } from './types';
 import { useMatchTransform } from './useMatchTransform';
+import { PostgrestError } from '@supabase/supabase-js';
 
 export const useMatchOperations = () => {
   const { user } = useAuth();
@@ -17,12 +18,15 @@ export const useMatchOperations = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   // Helper function to wrap async operations with proper error handling
-  const safeAsyncOperation = async <T,>(operation: () => Promise<T>, errorMsg: string): Promise<T | null> => {
+  const safeAsyncOperation = async <T,>(
+    operation: () => Promise<{ data: T | null; error: PostgrestError | null }>, 
+    errorMsg: string
+  ): Promise<{ data: T | null; error: PostgrestError | null }> => {
     try {
       return await operation();
     } catch (error: any) {
       console.error(`${errorMsg}:`, error);
-      return null;
+      return { data: null, error: error as PostgrestError };
     }
   };
 
