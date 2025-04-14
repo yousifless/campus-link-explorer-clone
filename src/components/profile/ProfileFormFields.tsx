@@ -12,7 +12,6 @@ import NationalitySelect from './NationalitySelect';
 import LanguageSelect from './LanguageSelect';
 import UniversityCampusSelect from './UniversitySelect';
 
-// Personal info fields
 export const PersonalInfoFields = ({ form }) => {
   return (
     <>
@@ -21,7 +20,7 @@ export const PersonalInfoFields = ({ form }) => {
         name="nickname"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="flex items-center">
+            <FormLabel htmlFor="nickname" className="flex items-center">
               Nickname
               <TooltipProvider>
                 <Tooltip>
@@ -35,7 +34,11 @@ export const PersonalInfoFields = ({ form }) => {
               </TooltipProvider>
             </FormLabel>
             <FormControl>
-              <Input placeholder="How would you like to be called?" {...field} />
+              <Input 
+                id="nickname" 
+                placeholder="How would you like to be called?" 
+                {...field} 
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -48,9 +51,9 @@ export const PersonalInfoFields = ({ form }) => {
           name="first_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>First Name</FormLabel>
+              <FormLabel htmlFor="first_name">First Name</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input id="first_name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -61,9 +64,9 @@ export const PersonalInfoFields = ({ form }) => {
           name="last_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Last Name</FormLabel>
+              <FormLabel htmlFor="last_name">Last Name</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input id="last_name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
