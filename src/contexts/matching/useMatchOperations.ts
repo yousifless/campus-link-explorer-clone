@@ -23,7 +23,8 @@ export const useMatchOperations = () => {
     errorMsg: string
   ): Promise<{ data: T | null; error: PostgrestError | null }> => {
     try {
-      return await operation();
+      const result = await operation();
+      return result;
     } catch (error: any) {
       console.error(`${errorMsg}:`, error);
       return { data: null, error: error as PostgrestError };
@@ -56,9 +57,9 @@ export const useMatchOperations = () => {
         data.map(async (match) => {
           const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
           
-          // Get the other user's profile with proper error handling
+          // Get the other user's profile
           const profileResult = await safeAsyncOperation(
-            () => db.profiles().select('*').eq('id', otherUserId).single(),
+            async () => await db.profiles().select('*').eq('id', otherUserId).single(),
             `Error fetching profile for user ${otherUserId}`
           );
           
@@ -132,7 +133,7 @@ export const useMatchOperations = () => {
 
       // Get the current user's interests
       const interestsResult = await safeAsyncOperation(
-        () => db.userInterests().select('interest_id').eq('user_id', user.id),
+        async () => await db.userInterests().select('interest_id').eq('user_id', user.id),
         'Error fetching user interests'
       );
 
@@ -144,7 +145,7 @@ export const useMatchOperations = () => {
 
       // Get the current user's languages
       const languagesResult = await safeAsyncOperation(
-        () => db.userLanguages().select('language_id').eq('user_id', user.id),
+        async () => await db.userLanguages().select('language_id').eq('user_id', user.id),
         'Error fetching user languages'
       );
 
@@ -164,7 +165,7 @@ export const useMatchOperations = () => {
         
         // Get this profile's interests
         const profileInterestsResult = await safeAsyncOperation(
-          () => db.userInterests().select('interest_id').eq('user_id', profile.id),
+          async () => await db.userInterests().select('interest_id').eq('user_id', profile.id),
           `Error fetching interests for user ${profile.id}`
         );
         
@@ -174,7 +175,7 @@ export const useMatchOperations = () => {
         
         // Get this profile's languages
         const profileLanguagesResult = await safeAsyncOperation(
-          () => db.userLanguages().select('language_id').eq('user_id', profile.id),
+          async () => await db.userLanguages().select('language_id').eq('user_id', profile.id),
           `Error fetching languages for user ${profile.id}`
         );
           
