@@ -111,10 +111,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) throw error;
 
       if (interests && interests.length > 0) {
+        // Throttle requests to prevent resource exhaustion
         await supabase
           .from('user_interests')
           .delete()
           .eq('user_id', user.id);
+        
+        // Add a slight delay before the next operation
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         for (const interestId of interests) {
           if (interestId) {
@@ -124,6 +128,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 user_id: user.id, 
                 interest_id: interestId 
               });
+            // Small delay between inserts
+            await new Promise(resolve => setTimeout(resolve, 50));
           }
         }
       }
@@ -133,6 +139,9 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .from('user_languages')
           .delete()
           .eq('user_id', user.id);
+        
+        // Add a slight delay before the next operation
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         for (const lang of languages) {
           if (lang && typeof lang === 'object') {
@@ -148,6 +157,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
                   language_id: langObj.id,
                   proficiency: proficiency 
                 });
+              // Small delay between inserts  
+              await new Promise(resolve => setTimeout(resolve, 50));
             }
           }
         }
