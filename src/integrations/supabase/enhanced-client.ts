@@ -5,25 +5,67 @@ import { Database } from './types';
 const supabaseUrl = "https://gdkvqvodqbzunzwfvcgh.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdka3Zxdm9kcWJ6dW56d2Z2Y2doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwOTMwMjEsImV4cCI6MjA1OTY2OTAyMX0.V1YctsUhIOpnvKYdCQVX9n4EBBVxQito7tLDeEO0gYs";
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
-  global: {
-    fetch: async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      // Add an adaptive backoff mechanism with randomized jitter to prevent rate limiting
-      const delay = Math.floor(Math.random() * 150) + 100; // Random delay between 100-250ms
-      await new Promise(resolve => setTimeout(resolve, delay));
+// Track pending requests to manage concurrency
+let pendingRequests = 0;
+const MAX_CONCURRENT_REQUESTS = 3;
+const requestQueue: Array<() => Promise<void>> = [];
+
+const processingRequest = async () => {
+  if (pendingRequests >= MAX_CONCURRENT_REQUESTS || requestQueue.length === 0) {
+    return;
+  }
+  
+  const nextRequest = requestQueue.shift();
+  if (nextRequest) {
+    pendingRequests++;
+    try {
+      await nextRequest();
+    } catch (error) {
+      console.error("Request error:", error);
+    } finally {
+      pendingRequests--;
+      setTimeout(processingRequest, 500); // Process next request after a delay
+    }
+  }
+};
+
+// Custom fetch implementation with improved request throttling and queuing
+const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  return new Promise((resolve, reject) => {
+    const executeRequest = async () => {
+      // Randomized delay between 300-800ms to prevent concurrent requests
+      const delay = Math.floor(Math.random() * 500) + 300;
+      await new Promise(r => setTimeout(r, delay));
       
       try {
         const response = await fetch(input, init);
-        return response;
+        resolve(response);
       } catch (error) {
         console.error('Fetch error:', error);
-        throw error;
+        reject(error);
       }
-    }
+    };
+
+    // Add request to queue
+    requestQueue.push(executeRequest);
+    
+    // Try to process the queue
+    processingRequest();
+  });
+};
+
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+  global: {
+    fetch: customFetch
+  },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   }
 });
 
-// Enhance the profiles table type to include nickname and cultural_insight
+// Enhanced profiles table type
 export type ProfileRow = {
   id: string;
   first_name: string | null;
@@ -41,7 +83,7 @@ export type ProfileRow = {
   cultural_insight: string | null;
 };
 
-// Create a db object that provides helper methods for common database operations
+// Database helper methods
 export const db = {
   profiles: () => supabase.from('profiles'),
   matches: () => supabase.from('matches'),
@@ -56,7 +98,6 @@ export const db = {
   interests: () => supabase.from('interests'),
   languages: () => supabase.from('languages'),
   // For now, we'll use the generic version of the from method for tables that aren't in the types yet
-  // This is a temporary solution until we update the Supabase schema
   deals: () => supabase.from('deals' as any),
   dealReviews: () => supabase.from('deal_reviews' as any),
   meetups: () => supabase.from('meetups' as any)

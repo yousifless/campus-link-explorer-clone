@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useMatching } from '@/contexts/matching';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 const MatchCard = ({ match, onLike, onSkip }) => {
-  // Get initials safely, handling null values
   const getInitials = () => {
     const firstName = match.first_name || '';
     const lastName = match.last_name || '';
@@ -135,12 +133,22 @@ const Feed = () => {
   const { profile } = useProfile();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [processingAction, setProcessingAction] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const FETCH_THROTTLE_MS = 30000;
+
+  const fetchMatches = useCallback(() => {
+    const now = Date.now();
+    if (now - lastFetchTime > FETCH_THROTTLE_MS) {
+      setLastFetchTime(now);
+      fetchSuggestedMatches();
+    }
+  }, [fetchSuggestedMatches, lastFetchTime]);
 
   useEffect(() => {
     if (profile) {
-      fetchSuggestedMatches();
+      fetchMatches();
     }
-  }, [fetchSuggestedMatches, profile]);
+  }, [profile, fetchMatches]);
 
   const handleLike = async () => {
     if (currentIndex >= suggestedMatches.length || processingAction) return;
@@ -160,6 +168,11 @@ const Feed = () => {
   const handleSkip = () => {
     if (currentIndex >= suggestedMatches.length || processingAction) return;
     setCurrentIndex(currentIndex + 1);
+  };
+
+  const handleRefresh = () => {
+    setCurrentIndex(0);
+    fetchSuggestedMatches();
   };
 
   if (loading && suggestedMatches.length === 0) {
@@ -206,11 +219,8 @@ const Feed = () => {
       <div className="container mx-auto max-w-md px-4 py-8 text-center">
         <h2 className="text-2xl font-bold mb-4">No More Matches</h2>
         <p className="mb-6">We're currently out of potential matches for you. Check back later!</p>
-        <Button onClick={() => {
-          setCurrentIndex(0);
-          fetchSuggestedMatches();
-        }}>
-          Refresh
+        <Button onClick={handleRefresh} disabled={loading}>
+          {loading ? 'Loading...' : 'Refresh'}
         </Button>
       </div>
     );
