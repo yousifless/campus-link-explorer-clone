@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/integrations/supabase/enhanced-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { MatchType, MatchStatus } from './types';
@@ -20,9 +19,7 @@ export const useMatchOperations = () => {
     setLoading(true);
     try {
       // Get all matches where the user is either user1 or user2
-      // Use string interpolation for the OR condition to avoid the foreign key error
-      const { data, error } = await supabase
-        .from('matches')
+      const { data, error } = await db.matches()
         .select('*')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
@@ -34,8 +31,7 @@ export const useMatchOperations = () => {
           const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
           
           // Get the other user's profile
-          const { data: profileData } = await supabase
-            .from('profiles')
+          const { data: profileData } = await db.profiles()
             .select('*')
             .eq('id', otherUserId)
             .single();
@@ -85,55 +81,75 @@ export const useMatchOperations = () => {
     setLoading(true);
     try {
       // Get a limited number of profiles that are not the current user
-      // This is a simplified suggestion algorithm without creating test users
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*, user_interests!inner(interest_id, interests(*)), user_languages!inner(language_id, languages(*))')
+      const { data: profilesData, error: profilesError } = await db.profiles()
+        .select('*')
         .neq('id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (profilesError) throw profilesError;
 
-      // Get the current user's interests and languages
-      const { data: userInterests } = await supabase
-        .from('user_interests')
+      // Get the current user's interests - FIX: Properly handle potential errors
+      const { data: userInterestsData, error: interestsError } = await db.userInterests()
         .select('interest_id')
         .eq('user_id', user.id);
 
-      const { data: userLanguages } = await supabase
-        .from('user_languages')
+      // If there's an error, log it but continue with empty interests
+      let userInterestIds: string[] = [];
+      if (interestsError) {
+        console.error('Error fetching user interests:', interestsError);
+      } else {
+        userInterestIds = (userInterestsData || []).map(ui => ui.interest_id);
+      }
+
+      // Get the current user's languages - FIX: Properly handle potential errors
+      const { data: userLanguagesData, error: languagesError } = await db.userLanguages()
         .select('language_id')
         .eq('user_id', user.id);
 
-      // Process the suggested matches with genuine match scores
-      const suggestedData = data.map(profile => {
-        // Calculate common interests
-        const profileInterests = profile.user_interests?.map(ui => ui.interest_id) || [];
-        const userInterestIds = userInterests?.map(ui => ui.interest_id) || [];
-        const commonInterests = profileInterests.filter(id => 
-          userInterestIds.includes(id)
-        ).length;
+      // If there's an error, log it but continue with empty languages
+      let userLanguageIds: string[] = [];
+      if (languagesError) {
+        console.error('Error fetching user languages:', languagesError);
+      } else {
+        userLanguageIds = (userLanguagesData || []).map(ul => ul.language_id);
+      }
 
-        // Calculate common languages
-        const profileLanguages = profile.user_languages?.map(ul => ul.language_id) || [];
-        const userLanguageIds = userLanguages?.map(ul => ul.language_id) || [];
-        const commonLanguages = profileLanguages.filter(id => 
-          userLanguageIds.includes(id)
-        ).length;
-
-        // Calculate match score based on common interests and languages
+      // Process profiles with their interests and languages
+      const suggestedMatchesWithScores = await Promise.all((profilesData || []).map(async (profile) => {
+        // Get this profile's interests
+        const { data: profileInterestsData } = await db.userInterests()
+          .select('interest_id')
+          .eq('user_id', profile.id);
+        
+        const profileInterestIds = (profileInterestsData || []).map(pi => pi.interest_id);
+        
+        // Get this profile's languages
+        const { data: profileLanguagesData } = await db.userLanguages()
+          .select('language_id')
+          .eq('user_id', profile.id);
+          
+        const profileLanguageIds = (profileLanguagesData || []).map(pl => pl.language_id);
+        
+        // Calculate common interests and languages
+        const commonInterests = profileInterestIds.filter(id => userInterestIds.includes(id)).length;
+        const commonLanguages = profileLanguageIds.filter(id => userLanguageIds.includes(id)).length;
+        
+        // Calculate match score
         const matchScore = (commonInterests * 10) + (commonLanguages * 15);
-
+        
         return {
           ...profile,
           common_interests: commonInterests,
           common_languages: commonLanguages,
           match_score: matchScore
         };
-      }).sort((a, b) => b.match_score - a.match_score); // Sort by match score
+      }));
 
-      setSuggestedMatches(suggestedData);
+      // Sort by match score
+      const sortedMatches = suggestedMatchesWithScores.sort((a, b) => b.match_score - a.match_score);
+      
+      setSuggestedMatches(sortedMatches);
     } catch (error: any) {
       console.error('Error fetching suggested matches:', error);
       toast({
@@ -151,8 +167,7 @@ export const useMatchOperations = () => {
 
     try {
       // Check if match already exists
-      const { data: existingMatch } = await supabase
-        .from('matches')
+      const { data: existingMatch } = await db.matches()
         .select('*')
         .or(`and(user1_id.eq.${user.id},user2_id.eq.${matchUserId}),and(user1_id.eq.${matchUserId},user2_id.eq.${user.id})`)
         .limit(1);
@@ -167,7 +182,7 @@ export const useMatchOperations = () => {
       }
 
       // Create new match with better error handling
-      const { error } = await supabase.from('matches').insert({
+      const { error } = await db.matches().insert({
         user1_id: user.id,
         user2_id: matchUserId,
         status: 'pending',
@@ -243,8 +258,7 @@ export const useMatchOperations = () => {
     if (!user) return;
 
     try {
-      const { data: match, error: matchError } = await supabase
-        .from('matches')
+      const { data: match, error: matchError } = await db.matches()
         .select('*')
         .eq('id', matchId)
         .single();
@@ -272,8 +286,7 @@ export const useMatchOperations = () => {
         updates = { ...updates, status: 'rejected' };
       }
 
-      const { error: updateError } = await supabase
-        .from('matches')
+      const { error: updateError } = await db.matches()
         .update(updates)
         .eq('id', matchId);
 
