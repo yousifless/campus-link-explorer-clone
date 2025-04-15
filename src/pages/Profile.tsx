@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const Profile = () => {
   const { profile, loading } = useProfile();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [universities, setUniversities] = useState([]);
   const [campuses, setCampuses] = useState([]);
@@ -80,7 +82,7 @@ const Profile = () => {
         supabase
           .from('campuses')
           .select('*')
-          .eq('university_id', profile.university)
+          .eq('university_id', profile.university_id)
           .then(({ data, error }) => {
             if (!error && data) {
               setCampuses(data);
@@ -119,6 +121,14 @@ const Profile = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <Card className="shadow-lg">
+
+
+
+
+
+
+
+
           <CardHeader>
             <Skeleton className="h-8 w-3/4 mb-2" />
             <Skeleton className="h-4 w-1/2" />
@@ -137,6 +147,14 @@ const Profile = () => {
       </div>
     );
   }
+
+  useEffect(() => {
+    if (!loading && !profile) {
+      // Profile is not loaded (null)
+      navigate("/profile-setup");
+    }
+  }, [loading, profile, navigate]);
+
 
   return (
     <div className="container mx-auto px-4 py-8">

@@ -46,18 +46,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, userData: any) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signUp({ 
-        email, 
+      const { data: user, error: authError } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           data: {
             firstName: userData.firstName,
             lastName: userData.lastName
           }
-        }
+        },
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
+
+      if (user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([{ 
+            id: user.user.id,
+            first_name: userData.firstName, // Use snake_case to match db schema
+            last_name: userData.lastName,   // Use snake_case to match db schema
+          }]);
+
+        if (profileError) {
+          throw new Error(`Profile creation failed: ${profileError.message}`);
+        }
+      }
+
       toast({
         title: "Account created",
         description: "Please verify your email to complete registration",
@@ -69,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message,
         variant: "destructive"
       });
+
     } finally {
       setLoading(false);
     }

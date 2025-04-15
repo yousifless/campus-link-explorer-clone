@@ -53,77 +53,101 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('id', user.id)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-        throw error;
+      if (error) {        
+        if (error.code === 'PGRST116') {  // This is the error code for "no rows found"
+          console.warn("No profile found for user:", user.id);
+          setProfile(null);
+          return; 
+        } else {
+          console.error('Error fetching profile:', error);
+          throw error; // Re-throw other errors
+        }
       }
 
-      // Fetch user's interests - use maybeSingle to avoid errors when no results
+      // Fetch user's interests with IDs
       let interests: string[] = [];
       try {
         const { data: userInterestsData } = await supabase
           .from('user_interests')
-          .select('interests(id, name)')
+          .select('interest_id')
           .eq('user_id', user.id);
-          
-        interests = (userInterestsData || [])
-          .map((i: any) => i.interests?.name)
-          .filter(Boolean);
+        
+        interests = (userInterestsData || []).map((i) => i.interest_id);
       } catch (interestsError) {
         console.error('Error fetching interests:', interestsError);
-        // Continue despite error
       }
 
-      // Fetch user's languages - use maybeSingle to avoid errors when no results
-      let languages: string[] = [];
+      // Fetch user's languages with proficiency
+      let languages: LanguageWithProficiency[] = [];
       try {
         const { data: userLanguagesData } = await supabase
           .from('user_languages')
-          .select('languages(id, name, code), proficiency')
+          .select('language_id, proficiency')
           .eq('user_id', user.id);
-          
-        languages = (userLanguagesData || [])
-          .map((l: any) => l.languages?.name)
-          .filter(Boolean);
+        
+        languages = (userLanguagesData || []).map((l) => ({
+          id: l.language_id,
+          proficiency: l.proficiency,
+        }));
       } catch (languagesError) {
         console.error('Error fetching languages:', languagesError);
-        // Continue despite error
       }
 
-      // Fetch university name if campus_id exists
-      let universityName = null;
+      // Fetch university and campus names
+      let university: { id: string; name: string } | null = null;
+      let campusName: string | null = null;
+
+      if (data?.university_id) {
+        try {
+          const { data: universityData, error: universityError } = await supabase
+            .from('universities')
+            .select('name')
+            .eq('id', data.university_id)
+            .single();
+
+          if (!universityError && universityData) {
+            university = { id: universityData.id, name: universityData.name };
+          }
+        } catch (error) {
+          console.error('Error fetching university name:', error);
+        }
+      }
+
       if (data?.campus_id) {
         try {
           const { data: campusData, error: campusError } = await supabase
             .from('campuses')
-            .select('universities(name)')
+            .select('name')
             .eq('id', data.campus_id)
             .single();
-            
-          if (!campusError && campusData && campusData.universities) {
-            universityName = campusData.universities.name || null;
+
+          if (!campusError && campusData) {
+            campusName = campusData.name;
           }
-        } catch (campusError) {
-          console.error('Error fetching campus data:', campusError);
-          // Continue even if we can't fetch the university name
+        } catch (error) {
+          console.error('Error fetching campus name:', error);
         }
       }
 
-      const studentType = data?.student_type === "international" || data?.student_type === "local" 
-        ? data.student_type 
-        : null;
+      const studentType =
+        data?.student_type === "international" || data?.student_type === "local"
+          ? data.student_type
+          : null;
 
-      // Create a profile object with all necessary fields, including nickname and cultural_insight
+      // Create a profile object with all necessary fields, including university and campus names
       const profileData: ProfileType = {
+        ...data,
+        campus_id: data?.campus_id, // Ensure campus_id is included
         ...data,
         interests: interests,
         languages: languages,
-        university: universityName,
+        university: university ? university.name : null,
+        campus: campusName,
         student_type: studentType,
         is_verified: data?.is_verified || false,
         nickname: data?.nickname || null,
-        cultural_insight: data?.cultural_insight || null
-      };
+        cultural_insight: data?.cultural_insight || null,
+      }
 
       setProfile(profileData);
     } catch (error: any) {
@@ -145,37 +169,50 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       const { interests, languages, ...profileUpdates } = updates;
       
-      // Include nickname and cultural_insight in profile updates
-      const { nickname, cultural_insight, ...otherUpdates } = profileUpdates;
-      
-      // Update profile with better error handling
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          nickname,
-          cultural_insight,
-          ...otherUpdates
-        })
-        .eq('id', user.id);
+      // Ensure that only allowed fields are being updated to prevent errors.
+      const allowedFields = [
+        'nickname',
+        'cultural_insight',
+        'university_id',
+        'campus_id',
+        'major_id',
+        'student_type',
+        'nationality',
+        'year_of_study',
+        'first_name',
+        'last_name',
+        'bio',
+        'location',
+        'avatar_url',
+        'interests',
+        'languages',
+      ];
+      const filteredUpdates = Object.fromEntries(
+        Object.entries(profileUpdates).filter(([key]) => allowedFields.includes(key))
+      );
 
-      if (error) {
-        console.error('Error updating profile:', error);
-        throw error;
+      // Update profile
+      console.log('Sending updates to Supabase:', filteredUpdates);
+      const { error: profileError } = await supabase.from('profiles').update(filteredUpdates).eq('id', user.id);
+
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw profileError;
       }
 
-      // Handle interest updates
-      if (interests && Array.isArray(interests) && interests.length > 0) {
+      // Update interests - Sequentially after profile update
+      if (interests !== undefined) {
         await updateInterests(interests);
       }
 
-      // Handle language updates
-      if (languages && Array.isArray(languages) && languages.length > 0) {
+      // Update languages - Sequentially after interests update
+      if (languages !== undefined) {
         await updateLanguages(languages);
       }
 
       // Refresh profile data to show the updated profile
       await fetchProfile(true);
-      
+
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated",
@@ -185,7 +222,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toast({
         title: "Error updating profile",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);

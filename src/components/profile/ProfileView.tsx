@@ -133,8 +133,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                 </h3>
                 <div className="space-y-1 pl-6">
                   <p className="flex items-start">
-                    <Book size={14} className="mr-2 mt-1 text-muted-foreground" />
+                    <Book size={14} className="mr-2 mt-1 text-muted-foreground" />                    
                     <span><span className="font-medium">University:</span> {profile?.university || "Not specified"}</span>
+                    {profile?.campus_id && (
+                      <span className="ml-2 text-muted-foreground">• {campuses.find(c => c.id === profile.campus_id)?.name}</span>
+                    )}
                   </p>
                   <p className="flex items-start">
                     <Book size={14} className="mr-2 mt-1 text-muted-foreground" />
@@ -164,10 +167,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({
                   </p>
                   <p className="flex items-start">
                     <MapPin size={14} className="mr-2 mt-1 text-muted-foreground" />
-                    <span><span className="font-medium">City:</span> {universities.find(u => u.id === profile?.university)?.location || "Not specified"}</span>
+                    <span><span className="font-medium">City:</span> {universities.find(u => u.id === profile?.university_id)?.location || "Not specified"}</span>
+                  </p>
+                  <p className="flex items-start">
+                    <MapPin size={14} className="mr-2 mt-1 text-muted-foreground" />
+                    <span><span className="font-medium">Location:</span> {profile?.location || "Not specified"}</span>
                   </p>
                 </div>
               </motion.div>
+              
+              
             </div>
 
             {profile.cultural_insight && (

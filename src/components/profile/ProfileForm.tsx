@@ -98,7 +98,12 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 // The main profile form component
-const ProfileForm = ({ isEditing, setIsEditing }) => {
+interface ProfileFormProps {
+  isEditing: boolean;
+  setIsEditing: (editing: boolean) => void;
+}
+
+const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) => {
   const { profile, updateProfile, loading } = useProfile();
   const [universities, setUniversities] = useState<University[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -179,6 +184,8 @@ const ProfileForm = ({ isEditing, setIsEditing }) => {
         
         if (interestsError) throw interestsError;
         setInterests(interestsData as Interest[]);
+        setUniversitySearch('');
+        setMajorSearch('');
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -199,7 +206,7 @@ const ProfileForm = ({ isEditing, setIsEditing }) => {
         bio: profile.bio || '',
         nationality: profile.nationality || '',
         year_of_study: profile.year_of_study?.toString() || '',
-        university: profile.university || '',
+        university: profile.university_id || '',
         campus: profile.campus_id || '',
         major: profile.major_id || '',
         student_type: profile.student_type || '',
@@ -295,7 +302,9 @@ const ProfileForm = ({ isEditing, setIsEditing }) => {
     
     try {
       setUploadingAvatar(true);
+      console.log('Uploading avatar file:', fileName);
       
+
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, { upsert: true });
@@ -305,12 +314,20 @@ const ProfileForm = ({ isEditing, setIsEditing }) => {
       const { data: publicUrlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
+      console.log('Avatar public URL:', publicUrlData.publicUrl);
       
-      await updateProfile({ 
-        avatar_url: publicUrlData.publicUrl 
-      });
-      
+      // Update the local profile state directly
+      useProfile().setProfile(prevProfile => ({
+        ...prevProfile,
+        avatar_url: publicUrlData.publicUrl,
+      }));
+
+      console.log('Calling updateProfile with avatar_url:', publicUrlData.publicUrl);
+      // Update the profile in the database with the new avatar URL
+      await updateProfile({ avatar_url: publicUrlData.publicUrl });
+      console.log('updateProfile call completed.');
     } catch (error: any) {
+
       console.error('Error uploading avatar:', error);
     } finally {
       setUploadingAvatar(false);
@@ -365,56 +382,38 @@ const ProfileForm = ({ isEditing, setIsEditing }) => {
 
   // Form submission
   async function onSubmit(values: FormValues) {
-    const updates = {
+    const updates: Partial<ProfileType> = {
       nickname: values.nickname,
       first_name: values.first_name,
       last_name: values.last_name,
       bio: values.bio,
+      university_id: values.university || null, // Use university_id here
       nationality: values.nationality,
       year_of_study: values.year_of_study ? parseInt(values.year_of_study) : null,
       campus_id: values.campus || null,
       major_id: values.major || null,
       student_type: values.student_type as 'international' | 'local' | null,
       cultural_insight: values.cultural_insight,
+      location: values.location, // Include location here
+      avatar_url: profile?.avatar_url,
+      interests: interests
+        .filter((interest) => selectedInterests.includes(interest.id))
+        .map((interest) => ({
+          id: interest.id,
+          name: interest.name,
+          category: interest.category,
+        })),
+      languages: selectedLanguages.map((lang) => ({
+        language_id: lang.language_id,
+        proficiency: lang.proficiency,
+      })),
     };
+
 
     await updateProfile(updates);
 
     // Update languages
     await supabase
-      .from('user_languages')
-      .delete()
-      .eq('user_id', profile?.id);
-
-    if (selectedLanguages.length > 0) {
-      const languageRecords = selectedLanguages.map(lang => ({
-        user_id: profile?.id,
-        language_id: lang.language_id,
-        proficiency: lang.proficiency
-      }));
-      
-      await supabase
-        .from('user_languages')
-        .insert(languageRecords);
-    }
-
-    // Update interests
-    await supabase
-      .from('user_interests')
-      .delete()
-      .eq('user_id', profile?.id);
-    
-    if (selectedInterests.length > 0) {
-      const interestRecords = selectedInterests.map(interestId => ({
-        user_id: profile?.id,
-        interest_id: interestId
-      }));
-      
-      await supabase
-        .from('user_interests')
-        .insert(interestRecords);
-    }
-
     setIsEditing(false);
   }
 
@@ -618,6 +617,20 @@ const ProfileForm = ({ isEditing, setIsEditing }) => {
                 <FormLabel>Nationality</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g., Japanese, American" {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {/* Add Location Field Here */}
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Tokyo, New York" {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

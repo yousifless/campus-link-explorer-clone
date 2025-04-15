@@ -90,9 +90,11 @@ export type ProfileType = {
   year_of_study: number | null;
   nationality: string | null;
   is_verified: boolean;
-  interests: string[] | null;
-  languages: string[] | null;
+  interests: { id: string; name: string; category: string; }[] | null;
+  languages: { language_id: string; proficiency: string; }[] | null;
   cultural_insight: string | null;
+  university_id: string | null;
+  location: string | null;
 };
 
 export type University = {
