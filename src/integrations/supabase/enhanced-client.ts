@@ -1,14 +1,19 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './types';
 
-const supabaseUrl = "https://gdkvqvodqbzunzwfvcgh.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdka3Zxdm9kcWJ6dW56d2Z2Y2doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwOTMwMjEsImV4cCI6MjA1OTY2OTAyMX0.V1YctsUhIOpnvKYdCQVX9n4EBBVxQito7tLDeEO0gYs";
+// Use environment variables if available
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://gdkvqvodqbzunzwfvcgh.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdka3Zxdm9kcWJ6dW56d2Z2Y2doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwOTMwMjEsImV4cCI6MjA1OTY2OTAyMX0.V1YctsUhIOpnvKYdCQVX9n4EBBVxQito7tLDeEO0gYs';
+
+// Log configuration for debugging (remove in production)
+console.log("Supabase URL (enhanced-client.ts):", supabaseUrl);
+console.log("Supabase key defined (enhanced-client.ts):", !!supabaseKey);
 
 // Track pending requests to manage concurrency
 let pendingRequests = 0;
-const MAX_CONCURRENT_REQUESTS = 3;
+const MAX_CONCURRENT_REQUESTS = 2;
 const requestQueue: Array<() => Promise<void>> = [];
+const requestDelays = new Map<string, number>();
 
 const processingRequest = async () => {
   if (pendingRequests >= MAX_CONCURRENT_REQUESTS || requestQueue.length === 0) {
@@ -24,7 +29,7 @@ const processingRequest = async () => {
       console.error("Request error:", error);
     } finally {
       pendingRequests--;
-      setTimeout(processingRequest, 500); // Process next request after a delay
+      setTimeout(processingRequest, 800);
     }
   }
 };
@@ -33,12 +38,36 @@ const processingRequest = async () => {
 const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   return new Promise((resolve, reject) => {
     const executeRequest = async () => {
-      // Randomized delay between 300-800ms to prevent concurrent requests
-      const delay = Math.floor(Math.random() * 500) + 300;
+      // Get the endpoint from the URL
+      let endpoint: string;
+      if (typeof input === 'string') {
+        endpoint = new URL(input).pathname;
+      } else if (input instanceof URL) {
+        endpoint = input.pathname;
+      } else {
+        endpoint = new URL(input.url).pathname;
+      }
+      
+      // Calculate delay based on endpoint and previous requests
+      const baseDelay = requestDelays.get(endpoint) || 500;
+      const randomFactor = Math.random() * 0.5 + 0.75; // Random factor between 0.75 and 1.25
+      const delay = Math.floor(baseDelay * randomFactor);
+      
+      // Update the delay for this endpoint (increase if it's a frequently used endpoint)
+      requestDelays.set(endpoint, Math.min(baseDelay * 1.2, 2000));
+      
+      // Apply the delay
       await new Promise(r => setTimeout(r, delay));
       
       try {
         const response = await fetch(input, init);
+        
+        // If the request was successful, gradually decrease the delay
+        if (response.ok) {
+          const currentDelay = requestDelays.get(endpoint) || 500;
+          requestDelays.set(endpoint, Math.max(currentDelay * 0.9, 300));
+        }
+        
         resolve(response);
       } catch (error) {
         console.error('Fetch error:', error);
@@ -97,6 +126,7 @@ export const db = {
   majors: () => supabase.from('majors'),
   interests: () => supabase.from('interests'),
   languages: () => supabase.from('languages'),
+  personalityTraits: () => supabase.from('personality_traits'),
   // For now, we'll use the generic version of the from method for tables that aren't in the types yet
   deals: () => supabase.from('deals' as any),
   dealReviews: () => supabase.from('deal_reviews' as any),

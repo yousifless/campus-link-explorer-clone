@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -33,6 +32,11 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from '@/components/ui/use-toast';
+import { ProfileType } from '@/types/database';
+import InterestSelector from '@/components/interests/InterestSelector';
+import SelectedInterests from '@/components/interests/SelectedInterests';
+import { uploadAvatar } from '@/utils/storage';
 
 // Types for the dropdown data
 type University = {
@@ -93,6 +97,7 @@ const formSchema = z.object({
   major: z.string().optional(),
   student_type: z.string().optional(),
   cultural_insight: z.string().max(300, { message: 'Cultural insight must not exceed 300 characters' }).optional(),
+  location: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -104,7 +109,7 @@ interface ProfileFormProps {
 }
 
 const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) => {
-  const { profile, updateProfile, loading } = useProfile();
+  const { profile, updateProfile, loading, fetchProfile } = useProfile();
   const [universities, setUniversities] = useState<University[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [majors, setMajors] = useState<Major[]>([]);
@@ -129,6 +134,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
     "What kind of friends are you looking for?"
   ]);
   const [selectedBioPrompt, setSelectedBioPrompt] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
 
   // Initialize form with React Hook Form
   const form = useForm<FormValues>({
@@ -145,6 +151,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
       major: '',
       student_type: '',
       cultural_insight: '',
+      location: '',
     },
   });
 
@@ -211,6 +218,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
         major: profile.major_id || '',
         student_type: profile.student_type || '',
         cultural_insight: profile.cultural_insight || '',
+        location: profile.location || '',
       });
 
       if (profile.campus_id) {
@@ -293,42 +301,37 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
   };
 
   // Handle avatar upload
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !event.target.files[0] || !profile) return;
-    
-    const file = event.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${profile.id}-avatar.${fileExt}`;
-    
+  const handleAvatarUpload = async (file: File) => {
     try {
       setUploadingAvatar(true);
-      console.log('Uploading avatar file:', fileName);
       
+      // Upload the avatar using our utility function
+      const avatarUrl = await uploadAvatar(file);
+      
+      // Update the profile with the new avatar URL
+      if (profile?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ avatar_url: avatarUrl })
+          .eq('id', profile.id);
+          
+        if (error) throw error;
+        
+        // Refresh the profile to get the updated avatar
+        await fetchProfile();
+      }
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file, { upsert: true });
-      
-      if (uploadError) throw uploadError;
-      
-      const { data: publicUrlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
-      console.log('Avatar public URL:', publicUrlData.publicUrl);
-      
-      // Update the local profile state directly
-      useProfile().setProfile(prevProfile => ({
-        ...prevProfile,
-        avatar_url: publicUrlData.publicUrl,
-      }));
-
-      console.log('Calling updateProfile with avatar_url:', publicUrlData.publicUrl);
-      // Update the profile in the database with the new avatar URL
-      await updateProfile({ avatar_url: publicUrlData.publicUrl });
-      console.log('updateProfile call completed.');
+      toast({
+        title: "Avatar updated",
+        description: "Your profile picture has been updated successfully.",
+      });
     } catch (error: any) {
-
       console.error('Error uploading avatar:', error);
+      toast({
+        title: "Error uploading avatar",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setUploadingAvatar(false);
     }
@@ -381,41 +384,53 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
   };
 
   // Form submission
-  async function onSubmit(values: FormValues) {
-    const updates: Partial<ProfileType> = {
-      nickname: values.nickname,
-      first_name: values.first_name,
-      last_name: values.last_name,
-      bio: values.bio,
-      university_id: values.university || null, // Use university_id here
-      nationality: values.nationality,
-      year_of_study: values.year_of_study ? parseInt(values.year_of_study) : null,
-      campus_id: values.campus || null,
-      major_id: values.major || null,
-      student_type: values.student_type as 'international' | 'local' | null,
-      cultural_insight: values.cultural_insight,
-      location: values.location, // Include location here
-      avatar_url: profile?.avatar_url,
-      interests: interests
-        .filter((interest) => selectedInterests.includes(interest.id))
-        .map((interest) => ({
-          id: interest.id,
-          name: interest.name,
-          category: interest.category,
-        })),
-      languages: selectedLanguages.map((lang) => ({
-        language_id: lang.language_id,
-        proficiency: lang.proficiency,
-      })),
-    };
+  const handleSubmit = async (data: FormValues) => {
+    try {
+      setSubmitting(true);
+      
+      if (!profile?.id) {
+        throw new Error("User profile not found. Please try again later.");
+      }
 
+      // Prepare the updates
+      const updates: Partial<ProfileType> = {
+        year_of_study: data.year_of_study ? parseInt(data.year_of_study) : null,
+        student_type: data.student_type as 'international' | 'local' | null,
+        nickname: data.nickname,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        bio: data.bio,
+        nationality: data.nationality,
+        cultural_insight: data.cultural_insight,
+        location: data.location,
+        university_id: data.university,
+        campus_id: data.campus,
+        major_id: data.major
+      };
 
-    await updateProfile(updates);
+      // Update the profile
+      await updateProfile(updates);
 
-    // Update languages
-    await supabase
-    setIsEditing(false);
-  }
+      // Refresh the profile to get the updated data
+      await fetchProfile();
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error updating profile",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Filter functions for searchable dropdowns
   const filteredUniversities = universitySearch 
@@ -432,7 +447,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="flex flex-col items-center mb-6">
           <div className="relative group">
             <Avatar className="h-24 w-24 border-2 border-primary/20 transition-all hover:border-primary/40">
@@ -456,7 +471,11 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
               type="file" 
               accept="image/*" 
               className="hidden" 
-              onChange={handleAvatarUpload}
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleAvatarUpload(e.target.files[0]);
+                }
+              }}
               disabled={uploadingAvatar}
             />
           </div>
@@ -630,7 +649,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
               <FormItem>
                 <FormLabel>Location</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., Tokyo, New York" {...field} value={field.value || ''} />
+                  <Input placeholder="Your current location" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -931,39 +950,19 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
 
           <div>
             <h3 className="text-lg font-medium mb-3">Interests</h3>
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {interests.map((interest) => {
-                  const isSelected = selectedInterests.includes(interest.id);
-                  // Assign different colors based on interest categories
-                  const getColor = (category: string) => {
-                    switch(category) {
-                      case 'sports': return isSelected ? 'bg-blue-500' : 'bg-blue-100 text-blue-800';
-                      case 'arts': return isSelected ? 'bg-purple-500' : 'bg-purple-100 text-purple-800';
-                      case 'technology': return isSelected ? 'bg-green-500' : 'bg-green-100 text-green-800';
-                      case 'academics': return isSelected ? 'bg-amber-500' : 'bg-amber-100 text-amber-800';
-                      default: return isSelected ? 'bg-primary' : 'bg-primary/10 text-primary-foreground';
-                    }
-                  };
-                  
-                  return (
-                    <Badge 
-                      key={interest.id} 
-                      variant={isSelected ? "default" : "outline"}
-                      className={`cursor-pointer hover:shadow-sm transition-all ${isSelected ? 'text-white' : ''} ${getColor(interest.category)}`}
-                      onClick={() => handleInterestToggle(interest.id)}
-                    >
-                      {interest.name}
-                      {isSelected && (
-                        <Check size={12} className="ml-1" />
-                      )}
-                    </Badge>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Click on interests to add them to your profile
-              </p>
+            <div className="space-y-4">
+              <SelectedInterests
+                selectedInterests={selectedInterests}
+                onRemoveInterest={(interestId) => {
+                  setSelectedInterests(selectedInterests.filter(id => id !== interestId));
+                }}
+                className="mb-4"
+              />
+              <InterestSelector
+                selectedInterests={selectedInterests}
+                onInterestChange={setSelectedInterests}
+                maxInterests={10}
+              />
             </div>
           </div>
         </div>
@@ -978,7 +977,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
           </Button>
           <Button 
             type="submit" 
-            disabled={loading || loadingData}
+            disabled={loading || loadingData || submitting}
           >
             {loading ? 'Saving...' : 'Save Changes'}
           </Button>

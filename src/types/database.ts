@@ -1,26 +1,30 @@
-
 // Extended database types to complement the auto-generated Supabase types
 export type MatchType = {
   id: string;
+  created_at: string;
+  updated_at: string;
   user1_id: string;
   user2_id: string;
   status: string;
   user1_status: string;
   user2_status: string;
-  created_at: string;
-  updated_at: string;
+  match_score: number;
   otherUser: {
     id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    university: string | null;
-    student_type: string | null;
-    major: string | null;
-    bio: string | null;
+    first_name: string;
+    last_name: string;
+    avatar_url: string;
+    university: string;
+    student_type: string;
+    major: string;
+    bio: string;
+    nationality: string;
+    is_verified: boolean;
     common_interests: number;
     common_languages: number;
-    match_score: number;
+    year_of_study?: number;
+    location?: string;
+    cultural_insight?: string;
   };
 };
 
@@ -52,19 +56,20 @@ export type MessageType = {
   };
 };
 
-export type ConversationType = {
+export interface ConversationType {
   id: string;
   match_id: string;
   created_at: string;
   updated_at: string;
-  otherUser: {
+  otherUser?: {
     id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
   };
+  is_placeholder?: boolean;
   last_message?: MessageType;
-};
+}
 
 export type NotificationType = {
   id: string;
@@ -78,60 +83,82 @@ export type NotificationType = {
 
 export type ProfileType = {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
-  nickname: string | null;
-  university: string | null;
-  campus_id: string | null;
-  major_id: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  student_type: 'international' | 'local' | null;
-  year_of_study: number | null;
-  nationality: string | null;
+  first_name: string;
+  last_name: string;
+  nickname?: string | null;
+  bio?: string | null;
+  nationality?: string | null;
+  year_of_study?: number | null;
+  university_id?: string | null;
+  campus_id?: string | null;
+  major_id?: string | null;
+  student_type?: 'international' | 'local' | null;
+  cultural_insight?: string | null;
+  location?: string | null;
+  avatar_url?: string | null;
   is_verified: boolean;
-  interests: { id: string; name: string; category: string; }[] | null;
-  languages: { language_id: string; proficiency: string; }[] | null;
-  cultural_insight: string | null;
-  university_id: string | null;
-  location: string | null;
+  created_at: string;
+  updated_at: string;
+  interests: string[];
+  languages: {
+    id: string;
+    proficiency: string;
+  }[];
+  university?: {
+    id: string;
+    name: string;
+  } | null;
+  campus?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
-export type University = {
+export type LanguageType = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+export type InterestType = {
+  id: string;
+  name: string;
+  category: string;
+};
+
+export type UserLanguageType = {
+  id: string;
+  user_id: string;
+  language_id: string;
+  proficiency: 'beginner' | 'intermediate' | 'advanced' | 'native';
+  created_at: string;
+};
+
+export type UserInterestType = {
+  id: string;
+  user_id: string;
+  interest_id: string;
+  created_at: string;
+};
+
+export type UniversityType = {
   id: string;
   name: string;
   location: string;
   type: string;
 };
 
-export type Campus = {
+export type CampusType = {
   id: string;
   university_id: string;
   name: string;
   address: string;
 };
 
-export type Major = {
+export type MajorType = {
   id: string;
   name: string;
   field_of_study: string;
-};
-
-export type Language = {
-  id: string;
-  name: string;
-  code: string;
-};
-
-export type Interest = {
-  id: string;
-  name: string;
-  category: string;
-};
-
-export type UserLanguage = {
-  language_id: string;
-  proficiency: string;
 };
 
 // Deal types for the Local Deals feature
@@ -194,6 +221,35 @@ export type MeetupType = {
     last_name: string | null;
     avatar_url: string | null;
   };
+};
+
+export type MatchesWithProfilesView = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  user1_id: string;
+  user2_id: string;
+  status: string;
+  user1_status: string;
+  user2_status: string;
+  user1_first_name: string | null;
+  user1_last_name: string | null;
+  user1_avatar_url: string | null;
+  user1_university: string | null;
+  user1_student_type: string | null;
+  user1_major: string | null;
+  user1_bio: string | null;
+  user1_nationality: string | null;
+  user1_is_verified: boolean;
+  user2_first_name: string | null;
+  user2_last_name: string | null;
+  user2_avatar_url: string | null;
+  user2_university: string | null;
+  user2_student_type: string | null;
+  user2_major: string | null;
+  user2_bio: string | null;
+  user2_nationality: string | null;
+  user2_is_verified: boolean;
 };
 
 // Please note that this file is getting quite large and could be split into

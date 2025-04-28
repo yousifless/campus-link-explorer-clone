@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { MatchingContextType } from './types';
 import { useMatchOperations } from './useMatchOperations';
@@ -22,13 +21,70 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateMatchStatus,
     createMatch 
   } = useMatchOperations();
+  
+  const [isFetching, setIsFetching] = useState(false);
+  const lastFetchTimeRef = useRef(0);
+  const fetchCooldownMs = 5000; // 5 seconds cooldown
+  
+  // Function to safely fetch matches with cooldown
+  const safeFetchMatches = (): Promise<void> => {
+    return new Promise((resolve) => {
+      const now = Date.now();
+      
+      // If we're already fetching, skip
+      if (isFetching) {
+        console.log('Fetch already in progress, skipping...');
+        resolve();
+        return;
+      }
+      
+      // If we're in cooldown period, skip
+      if (now - lastFetchTimeRef.current < fetchCooldownMs) {
+        console.log('Fetch cooldown active, skipping...');
+        resolve();
+        return;
+      }
+      
+      // Start fetching
+      setIsFetching(true);
+      lastFetchTimeRef.current = now;
+      
+      fetchMatches()
+        .then(() => {
+          setIsFetching(false);
+          resolve();
+        })
+        .catch((error) => {
+          console.error('Error fetching matches:', error);
+          setIsFetching(false);
+          resolve();
+        });
+    });
+  };
 
   useEffect(() => {
     if (user) {
-      fetchMatches();
-      fetchSuggestedMatches && fetchSuggestedMatches();
+      safeFetchMatches();
+      // Only fetch suggested matches if the function exists
+      if (fetchSuggestedMatches) {
+        fetchSuggestedMatches();
+      }
     }
   }, [user, fetchMatches, fetchSuggestedMatches]);
+
+  // Listen for refresh-matches event with cooldown
+  useEffect(() => {
+    const handleRefreshMatches = () => {
+      console.log('Refresh matches event received');
+      safeFetchMatches();
+    };
+
+    window.addEventListener('refresh-matches', handleRefreshMatches);
+    
+    return () => {
+      window.removeEventListener('refresh-matches', handleRefreshMatches);
+    };
+  }, [fetchMatches]);
 
   const value = {
     matches,
@@ -37,7 +93,7 @@ export const MatchingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     theirPendingMatches,
     suggestedMatches,
     loading,
-    fetchMatches,
+    fetchMatches: safeFetchMatches, // Use the safe version
     fetchSuggestedMatches,
     acceptMatch,
     rejectMatch,

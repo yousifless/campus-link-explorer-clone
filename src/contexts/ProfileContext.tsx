@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -8,16 +7,24 @@ import { ProfileType } from '@/types/database';
 // Define a language interface to properly type the language objects
 interface LanguageWithProficiency {
   id: string;
-  name?: string;
-  code?: string;
-  proficiency?: string;
+  proficiency: string;
+}
+
+interface UniversityData {
+  id: string;
+  name: string;
+}
+
+interface CampusData {
+  id: string;
+  name: string;
 }
 
 type ProfileContextType = {
   profile: ProfileType | null;
   loading: boolean;
   updateProfile: (updates: Partial<ProfileType>) => Promise<void>;
-  fetchProfile: () => Promise<void>;
+  fetchProfile: (force?: boolean) => Promise<void>;
 };
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -46,21 +53,55 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(true);
       setLastFetchTime(now);
 
-      // Fetch the user's profile
-      const { data, error } = await supabase
+      // Fetch the user's profile with related data
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
-      if (error) {        
-        if (error.code === 'PGRST116') {  // This is the error code for "no rows found"
+      if (profileError) {        
+        if (profileError.code === 'PGRST116') {  // This is the error code for "no rows found"
           console.warn("No profile found for user:", user.id);
           setProfile(null);
           return; 
         } else {
-          console.error('Error fetching profile:', error);
-          throw error; // Re-throw other errors
+          console.error('Error fetching profile:', profileError);
+          throw profileError; // Re-throw other errors
+        }
+      }
+
+      // Fetch university data if university_id exists
+      let university = null;
+      if (profileData?.university) {
+        const { data: universityData } = await supabase
+          .from('universities')
+          .select('id, name')
+          .eq('id', profileData.university)
+          .single();
+        
+        if (universityData) {
+          university = {
+            id: universityData.id,
+            name: universityData.name
+          };
+        }
+      }
+
+      // Fetch campus data if campus_id exists
+      let campus = null;
+      if (profileData?.campus_id) {
+        const { data: campusData } = await supabase
+          .from('campuses')
+          .select('id, name')
+          .eq('id', profileData.campus_id)
+          .single();
+        
+        if (campusData) {
+          campus = {
+            id: campusData.id,
+            name: campusData.name
+          };
         }
       }
 
@@ -93,63 +134,40 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.error('Error fetching languages:', languagesError);
       }
 
-      // Fetch university and campus names
-      let university: { id: string; name: string } | null = null;
-      let campusName: string | null = null;
-
-      if (data?.university_id) {
-        try {
-          const { data: universityData, error: universityError } = await supabase
-            .from('universities')
-            .select('name')
-            .eq('id', data.university_id)
-            .single();
-
-          if (!universityError && universityData) {
-            university = { id: universityData.id, name: universityData.name };
-          }
-        } catch (error) {
-          console.error('Error fetching university name:', error);
-        }
-      }
-
-      if (data?.campus_id) {
-        try {
-          const { data: campusData, error: campusError } = await supabase
-            .from('campuses')
-            .select('name')
-            .eq('id', data.campus_id)
-            .single();
-
-          if (!campusError && campusData) {
-            campusName = campusData.name;
-          }
-        } catch (error) {
-          console.error('Error fetching campus name:', error);
-        }
-      }
-
       const studentType =
-        data?.student_type === "international" || data?.student_type === "local"
-          ? data.student_type
+        profileData?.student_type === "international" || profileData?.student_type === "local"
+          ? profileData.student_type
           : null;
 
-      // Create a profile object with all necessary fields, including university and campus names
-      const profileData: ProfileType = {
-        ...data,
-        campus_id: data?.campus_id, // Ensure campus_id is included
-        ...data,
-        interests: interests,
-        languages: languages,
-        university: university ? university.name : null,
-        campus: campusName,
-        student_type: studentType,
-        is_verified: data?.is_verified || false,
-        nickname: data?.nickname || null,
-        cultural_insight: data?.cultural_insight || null,
-      }
+      // Create a profile object with all necessary fields
+      const profile: ProfileType = {
+        id: profileData.id,
+        first_name: profileData?.first_name || '',
+        last_name: profileData?.last_name || '',
+        nickname: profileData?.nickname || null,
+        bio: profileData?.bio || null,
+        nationality: profileData?.nationality || null,
+        year_of_study: profileData?.year_of_study || null,
+        university_id: profileData?.university_id || null,
+        campus_id: profileData?.campus_id || null,
+        major_id: profileData?.major_id || null,
+        student_type: studentType as 'international' | 'local' | null,
+        cultural_insight: profileData?.cultural_insight || null,
+        location: profileData?.location || null,
+        avatar_url: profileData?.avatar_url || null,
+        is_verified: profileData?.is_verified || false,
+        created_at: profileData?.created_at || new Date().toISOString(),
+        updated_at: profileData?.updated_at || new Date().toISOString(),
+        interests: interests || [],
+        languages: languages.map(lang => ({
+          id: lang.id,
+          proficiency: lang.proficiency || 'intermediate'
+        })) || [],
+        university: university || null,
+        campus: campus || null
+      };
 
-      setProfile(profileData);
+      setProfile(profile);
     } catch (error: any) {
       console.error('Profile fetch error:', error);
       toast({
@@ -184,8 +202,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         'bio',
         'location',
         'avatar_url',
-        'interests',
-        'languages',
       ];
       const filteredUpdates = Object.fromEntries(
         Object.entries(profileUpdates).filter(([key]) => allowedFields.includes(key))
@@ -193,21 +209,65 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Update profile
       console.log('Sending updates to Supabase:', filteredUpdates);
-      const { error: profileError } = await supabase.from('profiles').update(filteredUpdates).eq('id', user.id);
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(filteredUpdates)
+        .eq('id', user.id);
 
       if (profileError) {
         console.error('Error updating profile:', profileError);
         throw profileError;
       }
 
-      // Update interests - Sequentially after profile update
+      // Update interests if provided
       if (interests !== undefined) {
-        await updateInterests(interests);
+        // Delete existing interests
+        const { error: deleteInterestsError } = await supabase
+          .from('user_interests')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (deleteInterestsError) throw deleteInterestsError;
+
+        // Insert new interests
+        if (interests.length > 0) {
+          const interestInserts = interests.map(interestId => ({
+            user_id: user.id,
+            interest_id: interestId
+          }));
+
+          const { error: insertInterestsError } = await supabase
+            .from('user_interests')
+            .insert(interestInserts);
+
+          if (insertInterestsError) throw insertInterestsError;
+        }
       }
 
-      // Update languages - Sequentially after interests update
+      // Update languages if provided
       if (languages !== undefined) {
-        await updateLanguages(languages);
+        // Delete existing languages
+        const { error: deleteLanguagesError } = await supabase
+          .from('user_languages')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (deleteLanguagesError) throw deleteLanguagesError;
+
+        // Insert new languages
+        if (languages.length > 0) {
+          const languageInserts = languages.map(lang => ({
+            user_id: user.id,
+            language_id: lang.id,
+            proficiency: lang.proficiency
+          }));
+
+          const { error: insertLanguagesError } = await supabase
+            .from('user_languages')
+            .insert(languageInserts);
+
+          if (insertLanguagesError) throw insertLanguagesError;
+        }
       }
 
       // Refresh profile data to show the updated profile
@@ -226,96 +286,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Extracted the interest updating logic to a separate function
-  const updateInterests = async (interests: string[]) => {
-    try {
-      // Delete existing interests first
-      const { error: deleteError } = await supabase
-        .from('user_interests')
-        .delete()
-        .eq('user_id', user!.id);
-      
-      if (deleteError) throw deleteError;
-      
-      // Add a slight delay before the next operation
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Batch insert interests to reduce API calls
-      const interestBatches = [];
-      const batchSize = 3;
-      
-      for (let i = 0; i < interests.length; i += batchSize) {
-        const batch = interests.slice(i, i + batchSize)
-          .filter(Boolean)
-          .map(interestId => ({
-            user_id: user!.id,
-            interest_id: interestId
-          }));
-        
-        if (batch.length > 0) {
-          interestBatches.push(batch);
-        }
-      }
-      
-      // Insert batches with delay between them
-      for (const batch of interestBatches) {
-        await supabase.from('user_interests').insert(batch);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    } catch (interestError) {
-      console.error('Error updating interests:', interestError);
-      // Continue despite interest update errors
-    }
-  };
-
-  // Extracted the language updating logic to a separate function
-  const updateLanguages = async (languages: any[]) => {
-    try {
-      // Delete existing languages first
-      const { error: deleteLangError } = await supabase
-        .from('user_languages')
-        .delete()
-        .eq('user_id', user!.id);
-      
-      if (deleteLangError) throw deleteLangError;
-      
-      // Add a slight delay before the next operation
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Batch insert languages to reduce API calls
-      const languageBatches = [];
-      const batchSize = 3;
-      
-      const validLanguages = languages
-        .filter(lang => lang && typeof lang === 'object' && (lang as LanguageWithProficiency).id);
-      
-      for (let i = 0; i < validLanguages.length; i += batchSize) {
-        const batch = validLanguages.slice(i, i + batchSize)
-          .map(lang => {
-            const langObj = lang as LanguageWithProficiency;
-            return {
-              user_id: user!.id,
-              language_id: langObj.id,
-              proficiency: langObj.proficiency || 'beginner'
-            };
-          });
-        
-        if (batch.length > 0) {
-          languageBatches.push(batch);
-        }
-      }
-      
-      // Insert batches with delay between them
-      for (const batch of languageBatches) {
-        await supabase.from('user_languages').insert(batch);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    } catch (langError) {
-      console.error('Error updating languages:', langError);
-      // Continue despite language update errors
     }
   };
 

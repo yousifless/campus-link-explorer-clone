@@ -1,218 +1,603 @@
-
-import React, { useState } from 'react';
-import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarClock, Coffee, MapPin, BellRing, ShieldCheck, Users } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import MeetupCard from '@/components/meetups/MeetupCard';
-import NewMeetupSheet from '@/components/meetups/NewMeetupSheet';
-import { MeetupType } from '@/types/database';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useInView } from 'react-intersection-observer';
+import { Calendar, Clock, MapPin, Coffee, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/utils/supabase';
+import NewMeetupSheet from '@/components/meetups/NewMeetupSheet';
+import { CoffeeMeetupCalendar } from '@/components/meetups/CoffeeMeetupCalendar';
+import MapLocationPicker from '@/components/meetups/MapLocationPicker';
+import ScheduleMeetupButton from '@/components/meetups/ScheduleMeetupButton';
+import { toast } from 'sonner';
+import { CoffeeMeetup, MeetupStatus } from '@/types/coffee-meetup';
+import { Profile } from '@/types/auth';
+import { useProfile } from '@/contexts/ProfileContext';
+import { useNavigate } from 'react-router-dom';
 
-// Mock data for development
-const MOCK_MEETUPS: MeetupType[] = [
-  {
-    id: '1',
-    creator_id: 'current-user-id',
-    invitee_id: 'user-2',
-    status: 'confirmed',
-    proposed_date: '2025-05-10',
-    proposed_time: '15:00',
-    location_name: 'Starbucks Shibuya',
-    location_address: '1-23-45 Shibuya, Tokyo',
-    notes: 'Looking forward to discussing our project!',
-    created_at: '2025-04-05T10:30:00Z',
-    invitee: {
-      first_name: 'Yuki',
-      last_name: 'Tanaka',
-      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400'
-    }
-  },
-  {
-    id: '2',
-    creator_id: 'user-3',
-    invitee_id: 'current-user-id',
-    status: 'pending',
-    proposed_date: '2025-05-12',
-    proposed_time: '13:30',
-    location_name: 'Tully\'s Coffee Ikebukuro',
-    location_address: '2-1-2 Ikebukuro, Tokyo',
-    notes: 'Let\'s chat about our Japanese language exchange!',
-    created_at: '2025-04-07T09:15:00Z',
-    creator: {
-      first_name: 'Ken',
-      last_name: 'Watanabe',
-      avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400'
-    }
+type Meetup = CoffeeMeetup;
+
+// Helper to build Google Maps Static Map URL
+function getStaticMapUrl(lat: number, lng: number) {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=400x200&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
+}
+
+// Helper to build Google Maps Directions link
+function getDirectionsUrl(lat: number, lng: number) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
+// Helper to calculate distance/duration (placeholder)
+async function getDistanceDuration(userLat: number, userLng: number, destLat: number, destLng: number) {
+  // TODO: Integrate with Google Maps Directions API for real data
+  // For now, return placeholder
+  return { distance: '2.3 km', duration: '8 min' };
+}
+
+// Type guard for language object
+function isLanguageObj(lang: any): lang is { id: string } {
+  return typeof lang === 'object' && lang !== null && 'id' in lang;
+}
+
+const MeetupCard: React.FC<{ meetup: Meetup; cardType: 'pending' | 'received' | 'confirmed'; onAccept?: () => void; onReject?: () => void }> = ({ meetup, cardType, onAccept, onReject }) => {
+  const { profile } = useProfile();
+  const navigate = useNavigate();
+  const user = profile;
+  // Always show the matched user (the other user, not yourself)
+  let otherUser;
+  if (meetup.sender_id === user?.id) {
+    otherUser = meetup.receiver;
+  } else {
+    otherUser = meetup.sender;
   }
-];
+  const isReceiver = meetup.receiver_id === user?.id;
 
-const Meetups = () => {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [sheet, setSheet] = useState(false);
-  const { toast } = useToast();
-  
-  const upcomingMeetups = MOCK_MEETUPS.filter(
-    meetup => meetup.status === 'confirmed'
+  // Find common interests
+  const commonInterests = Array.isArray(user?.interests) && Array.isArray(otherUser?.interests)
+    ? otherUser.interests.filter(interest => user.interests.includes(interest))
+    : [];
+
+  // Find common languages
+  const userLanguages = Array.isArray(user?.languages) ? user.languages : [];
+  const otherUserLanguages = Array.isArray(otherUser?.languages) ? otherUser.languages : [];
+  const commonLanguages = userLanguages.length && otherUserLanguages.length
+    ? otherUserLanguages.filter(language => {
+        if (typeof language === 'string') {
+          return userLanguages.some(l => (typeof l === 'string' ? l === language : isLanguageObj(l) && l.id === language));
+        } else if (isLanguageObj(language)) {
+          return userLanguages.some(l => (typeof l === 'string' ? l === language.id : isLanguageObj(l) && l.id === language.id));
+        }
+        return false;
+      })
+    : [];
+
+  // Map preview and distance/duration
+  const [distanceInfo, setDistanceInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation && meetup.location_lat && meetup.location_lng) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          getDistanceDuration(pos.coords.latitude, pos.coords.longitude, meetup.location_lat, meetup.location_lng)
+            .then(setDistanceInfo);
+        },
+        () => setUserLocation(null)
+      );
+    }
+  }, [meetup.location_lat, meetup.location_lng]);
+
+  // Handle message button click
+  const handleMessageClick = () => {
+    navigate(`/chat/${meetup.match_id}`);
+  };
+
+  // Unified card layout for all sections
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      className="group"
+    >
+      <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-12 w-12">
+                <AvatarImage src={otherUser?.avatar_url || ''} />
+                <AvatarFallback>
+                  {otherUser?.first_name?.[0] || ''}{otherUser?.last_name?.[0] || ''}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="font-semibold">
+                  {otherUser?.nickname || `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`}
+                </h3>
+                <p className="text-sm text-muted-foreground">{meetup.location_name}</p>
+              </div>
+            </div>
+            <Badge variant={
+              meetup.status === 'declined' ? 'destructive' :
+              meetup.status === 'confirmed' ? 'default' :
+              'secondary'
+            }>
+              {meetup.status.charAt(0).toUpperCase() + meetup.status.slice(1)}
+            </Badge>
+          </div>
+
+          {/* User details */}
+          {(Array.isArray(otherUser?.interests) && otherUser.interests.length > 0) && (
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground">Interests:</p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {otherUser.interests.map((interest, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {interest}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {(Array.isArray(otherUser?.languages) && otherUser.languages.length > 0) && (
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground">Languages:</p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {otherUser.languages.map((language, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {typeof language === 'string' ? language : language.id}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {otherUser?.cultural_insight && (
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground">Cultural insight:</p>
+              <p className="text-sm mt-1">{otherUser.cultural_insight}</p>
+            </div>
+          )}
+
+          {/* Meetup details */}
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>{format(new Date(meetup.date), 'PPP')}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>{format(new Date(meetup.date), 'p')}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{meetup.location_name}</span>
+            </div>
+            {meetup.location_lat && meetup.location_lng && (
+              <div className="mt-2">
+                <a
+                  href={getDirectionsUrl(meetup.location_lat, meetup.location_lng)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Open in Google Maps
+                </a>
+                <div className="rounded-lg overflow-hidden border w-full max-w-md mt-2">
+                  <img
+                    src={getStaticMapUrl(meetup.location_lat, meetup.location_lng)}
+                    alt="Map preview"
+                    className="w-full h-40 object-cover"
+                  />
+                </div>
+                {distanceInfo && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                    <MapPin className="h-4 w-4" />
+                    <span>{distanceInfo.distance} • {distanceInfo.duration} from your location</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {meetup.conversation_starter && (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground">Conversation Starter:</p>
+              <p className="text-sm mt-1">{meetup.conversation_starter}</p>
+            </div>
+          )}
+          {meetup.additional_notes && (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground">Additional Notes:</p>
+              <p className="text-sm mt-1">{meetup.additional_notes}</p>
+            </div>
+          )}
+
+          {/* Confirm/Reject for receiver in received section */}
+          {cardType === 'received' && meetup.status === 'pending' && isReceiver && (
+            <div className="mt-4 flex gap-2">
+              <Button variant="default" size="sm" className="flex-1" onClick={onAccept}>Confirm</Button>
+              <Button variant="outline" size="sm" className="flex-1" onClick={onReject}>Reject</Button>
+            </div>
+          )}
+
+          {/* Message button for confirmed meetups */}
+          {meetup.status === 'confirmed' && (
+            <div className="mt-4 flex gap-2">
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="flex-1"
+                onClick={handleMessageClick}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Send Message
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   );
-  
-  const pendingMeetups = MOCK_MEETUPS.filter(
-    meetup => meetup.status === 'pending'
-  );
+};
+
+const PopularLocations: React.FC = () => {
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    threshold: 0.1,
+  });
 
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Coffee Meetups</h1>
-            <p className="text-muted-foreground">
-              Schedule casual meetups with fellow students
-            </p>
-          </div>
-          <Button 
-            onClick={() => setSheet(true)} 
-            className="w-full md:w-auto"
-          >
-            <Coffee className="mr-2 h-4 w-4" />
-            Schedule New Meetup
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar and Safety Tips */}
-          <div className="space-y-6">
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 20 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.5 }}
+    >
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CalendarClock className="h-5 w-5" />
-                  <span>Calendar</span>
+            <MapPin className="h-5 w-5" />
+            <span>Popular Locations</span>
                 </CardTitle>
-                <CardDescription>Select a date to view meetups</CardDescription>
               </CardHeader>
               <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  className="border rounded-md"
-                />
-
-                {date && (
-                  <div className="mt-4 border-t pt-4">
-                    <h3 className="font-medium mb-2">
-                      {format(date, 'EEEE, MMMM d, yyyy')}
-                    </h3>
-                    <div className="text-sm text-muted-foreground">
-                      {upcomingMeetups.some(
-                        m => m.proposed_date === format(date, 'yyyy-MM-dd')
-                      ) ? (
-                        <p>You have meetups scheduled on this date.</p>
-                      ) : (
-                        <p>No meetups scheduled for this date.</p>
-                      )}
-                    </div>
-                  </div>
-                )}
+          <MapLocationPicker onLocationSelect={() => {}} />
               </CardContent>
             </Card>
+    </motion.div>
+  );
+};
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5" /> 
-                  <span>Safety Tips</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    <span>Always meet in public places with plenty of people around.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Users className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    <span>Consider bringing a friend if it's your first time meeting someone.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <BellRing className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    <span>Let someone know where you're going and when you expect to return.</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full text-sm">
-                  Read More Safety Guidelines
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+const Meetups: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('confirmed');
+  const { user } = useAuth();
+  const [isNewMeetupOpen, setIsNewMeetupOpen] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<{
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null>(null);
+  const [meetups, setMeetups] = useState<Meetup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [matchedUsers, setMatchedUsers] = useState<Profile[]>([]);
 
-          {/* Upcoming and Pending Meetups */}
-          <div className="lg:col-span-2">
-            <Tabs defaultValue="upcoming" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                <TabsTrigger value="pending">
-                  Pending
-                  {pendingMeetups.length > 0 && (
-                    <span className="ml-2 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs">
-                      {pendingMeetups.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="upcoming" className="mt-0">
-                {upcomingMeetups.length === 0 ? (
-                  <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-6 text-center">
-                      <Coffee className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No upcoming meetups</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        You don't have any confirmed meetups scheduled.
-                      </p>
-                      <Button onClick={() => setSheet(true)}>
-                        Schedule a Meetup
-                      </Button>
-                    </CardContent>
-                  </Card>
+  const loadData = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('coffee_meetups')
+        .select(`
+          *,
+          sender:profiles!coffee_meetups_sender_id_fkey(
+            id,
+            first_name,
+            last_name,
+            avatar_url,
+            interests,
+            languages,
+            bio,
+            nickname,
+            cultural_insight,
+            location
+          ),
+          receiver:profiles!coffee_meetups_receiver_id_fkey(
+            id,
+            first_name,
+            last_name,
+            avatar_url,
+            interests,
+            languages,
+            bio,
+            nickname,
+            cultural_insight,
+            location
+          )
+        `)
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMeetups(data || []);
+    } catch (error) {
+      console.error('Error loading meetups:', error);
+      toast('Failed to load meetups');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMatchedUsers = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: matches, error: matchesError } = await supabase
+        .from('matches')
+        .select('*')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+
+      if (matchesError) throw matchesError;
+
+      const matchedUserIds = (matches || []).map(match => 
+        match.user1_id === user.id ? match.user2_id : match.user1_id
+      );
+
+      if (matchedUserIds.length === 0) {
+        setMatchedUsers([]);
+        return;
+      }
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url, interests, bio')
+        .in('id', matchedUserIds);
+
+      if (profilesError) throw profilesError;
+
+      setMatchedUsers(profiles || []);
+    } catch (error) {
+      console.error('Error loading matched users:', error);
+      toast('Failed to load matched users');
+    }
+  };
+
+  const handleNewMeetup = async () => {
+    if (matchedUsers.length === 0) {
+      toast('You need to have at least one match to schedule a meetup');
+      return;
+    }
+    setIsNewMeetupOpen(true);
+    setSelectedMatch(matchedUsers[0]);
+  };
+
+  const handleMeetupScheduled = async (meetup: Meetup) => {
+    // Show success message with the other user's name
+    const otherUser = meetup.sender_id === user?.id ? meetup.receiver : meetup.sender;
+    const otherUserName = otherUser?.nickname || `${otherUser?.first_name} ${otherUser?.last_name}`;
+    toast.success(`Meetup scheduled successfully with ${otherUserName}!`);
+
+    // Send notification to the other user
+    try {
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: meetup.receiver_id,
+          type: 'meetup',
+          content: `You have a new meetup request at ${meetup.location_name} on ${format(new Date(meetup.date), 'PPP')}`,
+          related_id: meetup.id,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+
+      if (notificationError) {
+        console.error('Error sending notification:', notificationError);
+        toast.error('Failed to send notification to the other user');
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      toast.error('Failed to send notification to the other user');
+    }
+
+    // Reload meetups
+    loadData();
+  };
+
+  const handleAccept = async (meetupId: string, senderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('coffee_meetups')
+        .update({ status: 'confirmed' })
+        .eq('id', meetupId);
+      if (error) throw error;
+
+      // Send notification to sender
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: senderId,
+          type: 'meetup',
+          content: 'Your meetup request has been confirmed!',
+          related_id: meetupId,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+
+      if (notificationError) {
+        console.error('Error sending confirmation notification:', notificationError);
+        toast.error('Failed to send confirmation notification');
+      } else {
+        toast.success('Meetup confirmed successfully!');
+      }
+
+      loadData();
+    } catch (error) {
+      console.error('Error accepting meetup:', error);
+      toast.error('Failed to confirm meetup');
+    }
+  };
+
+  const handleReject = async (meetupId: string) => {
+    try {
+      const { error } = await supabase
+        .from('coffee_meetups')
+        .update({ status: 'declined' })
+        .eq('id', meetupId);
+      if (error) throw error;
+      loadData();
+    } catch (error) {
+      console.error('Error rejecting meetup:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    loadMatchedUsers();
+  }, [user]);
+
+  // Split meetups into sections
+  const pendingMeetups = meetups.filter(m => m.status === 'pending' && m.sender_id === user?.id);
+  const receivedMeetups = meetups.filter(m => m.status === 'pending' && m.receiver_id === user?.id);
+  const confirmedMeetups = meetups.filter(m => m.status === 'confirmed' && (m.sender_id === user?.id || m.receiver_id === user?.id));
+
+  // Filter confirmed meetups for calendar
+  const confirmedMeetupsForCalendar = meetups.filter(m => m.status === 'confirmed');
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
+
+  return (
+    <div className="container mx-auto py-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Coffee className="h-6 w-6" />
+          Coffee Meetups
+        </h1>
+        <ScheduleMeetupButton onClick={handleNewMeetup} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                <span>Calendar</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CoffeeMeetupCalendar
+                meetups={confirmedMeetupsForCalendar}
+                onDateSelect={() => {}}
+              />
+            </CardContent>
+          </Card>
+          <PopularLocations />
+        </div>
+        <div className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="received">Received</TabsTrigger>
+            </TabsList>
+            <AnimatePresence>
+              <TabsContent key="confirmed" value="confirmed" className="space-y-4">
+                {confirmedMeetups.length === 0 ? (
+                  <motion.div
+                    key="confirmed-empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-8"
+                  >
+                    <Coffee className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No confirmed meetups</p>
+                  </motion.div>
                 ) : (
-                  <div className="space-y-4">
-                    {upcomingMeetups.map((meetup) => (
-                      <MeetupCard key={meetup.id} meetup={meetup} />
-                    ))}
-                  </div>
+                  confirmedMeetups.map((meetup) => (
+                    <MeetupCard
+                      key={`confirmed-${meetup.id}`}
+                      meetup={meetup}
+                      cardType="confirmed"
+                    />
+                  ))
                 )}
               </TabsContent>
-              
-              <TabsContent value="pending" className="mt-0">
+              <TabsContent key="pending" value="pending" className="space-y-4">
                 {pendingMeetups.length === 0 ? (
-                  <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-6 text-center">
-                      <Coffee className="h-12 w-12 text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No pending meetups</h3>
-                      <p className="text-sm text-muted-foreground">
-                        You don't have any pending meetup requests.
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <motion.div
+                    key="pending-empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-8"
+                  >
+                    <Coffee className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No pending meetups</p>
+                  </motion.div>
                 ) : (
-                  <div className="space-y-4">
-                    {pendingMeetups.map((meetup) => (
-                      <MeetupCard key={meetup.id} meetup={meetup} />
-                    ))}
-                  </div>
+                  pendingMeetups.map((meetup) => (
+                    <MeetupCard
+                      key={`pending-${meetup.id}`}
+                      meetup={meetup}
+                      cardType="pending"
+                    />
+                  ))
                 )}
               </TabsContent>
-            </Tabs>
-          </div>
+              <TabsContent key="received" value="received" className="space-y-4">
+                {receivedMeetups.length === 0 ? (
+                  <motion.div
+                    key="received-empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-8"
+                  >
+                    <Coffee className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No received meetups</p>
+                  </motion.div>
+                ) : (
+                  receivedMeetups.map((meetup) => (
+                    <MeetupCard
+                      key={`received-${meetup.id}`}
+                      meetup={meetup}
+                      cardType="received"
+                      onAccept={() => handleAccept(meetup.id, meetup.sender_id)}
+                      onReject={() => handleReject(meetup.id)}
+                    />
+                  ))
+                )}
+              </TabsContent>
+            </AnimatePresence>
+          </Tabs>
         </div>
       </div>
-      
-      <NewMeetupSheet open={sheet} onOpenChange={setSheet} />
+      <NewMeetupSheet
+        matchId={selectedMatch?.id || ''}
+        selectedUser={selectedMatch || {
+          id: '',
+          first_name: '',
+          last_name: '',
+        }}
+        onClose={() => {
+          setIsNewMeetupOpen(false);
+          setSelectedMatch(null);
+          loadData();
+        }}
+        onSuccess={handleMeetupScheduled}
+        isOpen={isNewMeetupOpen}
+      />
     </div>
   );
 };
 
 export default Meetups;
+

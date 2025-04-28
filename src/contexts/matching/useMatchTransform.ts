@@ -1,4 +1,3 @@
-
 import { MatchType } from './types';
 
 export const useMatchTransform = () => {
@@ -30,8 +29,10 @@ export const useMatchTransform = () => {
           avatar_url: otherUserProfile.avatar_url || '',
           university: otherUserProfile.university || null,
           student_type: otherUserProfile.student_type || null,
-          major: otherUserProfile.major || null,
+          major: otherUserProfile.major_id || null, // Use major_id instead of major
           bio: otherUserProfile.bio || null,
+          nationality: otherUserProfile.nationality || null,
+          is_verified: otherUserProfile.is_verified || false,
           common_interests: 0,
           common_languages: 0,
           match_score: 0

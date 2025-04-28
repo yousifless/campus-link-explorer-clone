@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,16 +8,17 @@ import {
   Users, 
   User, 
   MessageSquare, 
-  Bell, 
   Menu, 
-  X 
+  X,
+  Bell,
+  Coffee,
+  LayoutDashboard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 const Navbar = () => {
   const { isAuthenticated, signOut } = useAuth();
-  const { unreadCount } = useNotifications();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -30,15 +30,11 @@ const Navbar = () => {
   const navItems = isAuthenticated
     ? [
         { path: '/', label: 'Home', icon: <Home size={20} /> },
-        { path: '/feed', label: 'Discover', icon: <Users size={20} /> },
+        { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+        { path: '/feed', label: 'Feed', icon: <Users size={20} /> },
         { path: '/matches', label: 'Matches', icon: <Users size={20} /> },
-        { path: '/chat', label: 'Messages', icon: <MessageSquare size={20} /> },
-        { 
-          path: '/notifications', 
-          label: 'Notifications', 
-          icon: <Bell size={20} />,
-          badge: unreadCount > 0 ? unreadCount : null 
-        },
+        { path: '/chat', label: 'Chat', icon: <MessageSquare size={20} /> },
+        { path: '/meetups', label: 'Meetups', icon: <Coffee size={20} /> },
         { path: '/profile', label: 'Profile', icon: <User size={20} /> },
       ]
     : [
@@ -76,13 +72,9 @@ const Navbar = () => {
             >
               {item.icon && <span>{item.icon}</span>}
               <span>{item.label}</span>
-              {item.badge && (
-                <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
-                  {item.badge}
-                </Badge>
-              )}
             </Link>
           ))}
+          {isAuthenticated && <NotificationCenter />}
         </nav>
 
         {/* Mobile nav */}
@@ -103,24 +95,24 @@ const Navbar = () => {
                 >
                   {item.icon && <span>{item.icon}</span>}
                   <span>{item.label}</span>
-                  {item.badge && (
-                    <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
-                      {item.badge}
-                    </Badge>
-                  )}
                 </Link>
               ))}
               {isAuthenticated && (
-                <Button 
-                  variant="destructive" 
-                  className="mt-4" 
-                  onClick={() => {
-                    signOut();
-                    closeMenu();
-                  }}
-                >
-                  Sign Out
-                </Button>
+                <>
+                  <div className="flex items-center space-x-3 text-base font-medium">
+                    <NotificationCenter />
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    className="mt-4" 
+                    onClick={() => {
+                      signOut();
+                      closeMenu();
+                    }}
+                  >
+                    Sign Out
+                  </Button>
+                </>
               )}
             </nav>
           </div>

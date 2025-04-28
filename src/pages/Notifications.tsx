@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,7 +36,12 @@ const getNotificationAction = (
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => navigate('/matches')}
+          onClick={() => {
+            navigate('/matches');
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('refresh-matches'));
+            }, 100);
+          }}
         >
           View Matches
         </Button>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -6,13 +5,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Language, Major, University, Campus, Interest } from '@/types/database';
+import { UniversityType, MajorType } from '@/types/database';
 import MajorSelect from './MajorSelect';
 import NationalitySelect from './NationalitySelect';
 import LanguageSelect from './LanguageSelect';
 import UniversityCampusSelect from './UniversitySelect';
 
-export const PersonalInfoFields = ({ form }) => {
+export const PersonalInfoFields = ({ form }: { form: any }) => {
   return (
     <>
       <FormField
@@ -78,7 +77,15 @@ export const PersonalInfoFields = ({ form }) => {
 };
 
 // Bio fields
-export const BioFields = ({ form, bioPrompts, handleBioPromptSelect }) => {
+export const BioFields = ({ 
+  form, 
+  bioPrompts, 
+  onPromptSelect 
+}: {
+  form: any;
+  bioPrompts: string[];
+  onPromptSelect: (prompt: string) => void;
+}) => {
   return (
     <>
       <FormField
@@ -141,12 +148,18 @@ export const AcademicFields = ({
   majors, 
   selectedUniversityId, 
   onUniversityChange 
+}: {
+  form: any;
+  universities: UniversityType[];
+  majors: MajorType[];
+  selectedUniversityId: string;
+  onUniversityChange: (id: string) => void;
 }) => {
   return (
     <>
       <FormField
         control={form.control}
-        name="university"
+        name="university_id"
         render={({ field }) => (
           <FormItem>
             <FormLabel>University & Campus</FormLabel>
@@ -154,12 +167,12 @@ export const AcademicFields = ({
               <UniversityCampusSelect
                 universities={universities}
                 selectedUniversityId={selectedUniversityId}
-                selectedCampusId={form.watch('campus') || ''}
+                selectedCampusId={form.watch('campus_id') || ''}
                 onUniversityChange={(id) => {
                   onUniversityChange(id);
-                  form.setValue('campus', '');
+                  form.setValue('campus_id', '');
                 }}
-                onCampusChange={(id) => form.setValue('campus', id)}
+                onCampusChange={(id) => form.setValue('campus_id', id)}
               />
             </FormControl>
             <FormMessage />
@@ -169,7 +182,7 @@ export const AcademicFields = ({
 
       <FormField
         control={form.control}
-        name="major"
+        name="major_id"
         render={({ field }) => (
           <FormItem>
             <FormLabel>Major</FormLabel>
@@ -241,7 +254,7 @@ export const AcademicFields = ({
 };
 
 // Nationality field
-export const NationalityField = ({ form }) => {
+export const NationalityField = ({ form }: { form: any }) => {
   return (
     <FormField
       control={form.control}

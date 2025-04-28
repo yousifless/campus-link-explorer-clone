@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
@@ -60,16 +59,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (authError) throw authError;
 
       if (user) {
-        const { error: profileError } = await supabase
+        // Check if profile already exists
+        const { data: existingProfile } = await supabase
           .from('profiles')
-          .insert([{ 
-            id: user.user.id,
-            first_name: userData.firstName, // Use snake_case to match db schema
-            last_name: userData.lastName,   // Use snake_case to match db schema
-          }]);
+          .select('id')
+          .eq('id', user.user.id)
+          .single();
+        
+        if (!existingProfile) {
+          // Only insert if profile doesn't exist
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([{ 
+              id: user.user.id,
+              first_name: userData.firstName, // Use snake_case to match db schema
+              last_name: userData.lastName,   // Use snake_case to match db schema
+            }]);
 
-        if (profileError) {
-          throw new Error(`Profile creation failed: ${profileError.message}`);
+          if (profileError) {
+            throw new Error(`Profile creation failed: ${profileError.message}`);
+          }
+        } else {
+          console.log('Profile already exists, skipping creation');
         }
       }
 

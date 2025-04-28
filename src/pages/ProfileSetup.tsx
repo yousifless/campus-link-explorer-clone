@@ -17,21 +17,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/integrations/supabase/enhanced-client';
 import { PersonalInfoFields, BioFields, AcademicFields, NationalityField } from '@/components/profile/ProfileFormFields';
-import { University, Major } from '@/types/database';
+import { UniversityType, MajorType } from '@/types/database';
 import { convertToUniversities, convertToMajors } from '@/utils/dataConverters';
+import InterestSelector from '@/components/interests/InterestSelector';
+import SelectedInterests from '@/components/interests/SelectedInterests';
+import { uploadAvatar } from '@/utils/storage';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { UserCircle, Camera } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 const formSchema = z.object({
-  university: z.string().min(1, {
+  university_id: z.string().min(1, {
     message: 'Please select your university.',
   }),
-  campus: z.string().min(1, {
+  campus_id: z.string().min(1, {
     message: 'Please select your campus.',
   }),
-  major: z.string().min(1, {
+  major_id: z.string().min(1, {
     message: 'Please select your major.',
   }),
-  student_type: z.string().min(1, {
-    message: 'Please select your student type.',
+  student_type: z.enum(['international', 'local'], {
+    required_error: 'Please select your student type.',
   }),
   year_of_study: z.string().min(1, {
     message: 'Please select your year of study.',
@@ -48,6 +54,8 @@ const formSchema = z.object({
   first_name: z.string().min(1, { message: 'First name is required' }),
   last_name: z.string().min(1, { message: 'Last name is required' }),
   cultural_insight: z.string().max(300, { message: 'Cultural insight must not exceed 300 characters' }).optional(),
+  interests: z.array(z.string()).min(1, { message: 'Please select at least one interest' }),
+  avatar_url: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -55,9 +63,10 @@ type FormValues = z.infer<typeof formSchema>;
 const ProfileSetup = () => {
   const { updateProfile, loading } = useProfile();
   const navigate = useNavigate();
-  const [universities, setUniversities] = useState<University[]>([]);
-  const [majors, setMajors] = useState<Major[]>([]);
+  const [universities, setUniversities] = useState<UniversityType[]>([]);
+  const [majors, setMajors] = useState<MajorType[]>([]);
   const [selectedUniversityId, setSelectedUniversityId] = useState<string>('');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [bioPrompts, setBioPrompts] = useState<string[]>([
     "What are your hobbies?",
     "What are you studying and why?",
@@ -65,14 +74,17 @@ const ProfileSetup = () => {
     "What's a cultural experience you'd like to share?",
     "What kind of friends are you looking for?"
   ]);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      university: '',
-      campus: '',
-      major: '',
-      student_type: '',
+      university_id: '',
+      campus_id: '',
+      major_id: '',
+      student_type: 'international',
       year_of_study: '',
       nationality: '',
       bio: '',
@@ -80,6 +92,7 @@ const ProfileSetup = () => {
       first_name: '',
       last_name: '',
       cultural_insight: '',
+      interests: [],
     },
   });
 
@@ -109,84 +122,180 @@ const ProfileSetup = () => {
 
   const onUniversityChange = (value: string) => {
     setSelectedUniversityId(value);
-    form.setValue('university', value);
-    form.setValue('campus', '');
+    form.setValue('campus_id', '');
   };
 
   const handleBioPromptSelect = (prompt: string) => {
-    const currentBio = form.getValues('bio') || '';
+    const currentBio = form.getValues('bio');
     form.setValue('bio', currentBio ? `${currentBio}\n\n${prompt}` : prompt);
   };
 
-  async function onSubmit(values: FormValues) {
-    await updateProfile({
-      nickname: values.nickname,
-      first_name: values.first_name,
-      last_name: values.last_name,
-      campus_id: values.campus,
-      major_id: values.major,
-      student_type: values.student_type as 'international' | 'local',
-      year_of_study: parseInt(values.year_of_study),
-      nationality: values.nationality,
-      bio: values.bio,
-      cultural_insight: values.cultural_insight,
-    });
+  const handleInterestChange = (interests: string[]) => {
+    setSelectedInterests(interests);
+    form.setValue('interests', interests);
+  };
 
-    navigate('/profile');
+  // Handle avatar upload
+  const handleAvatarUpload = async (file: File) => {
+    try {
+      setUploadingAvatar(true);
+      
+      // Show preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAvatarPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      
+      // Upload the avatar using our utility function
+      const avatarUrl = await uploadAvatar(file);
+      
+      // Store the avatar URL in the form data
+      form.setValue('avatar_url', avatarUrl);
+      
+      toast({
+        title: "Avatar uploaded",
+        description: "Your profile picture has been uploaded successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: "Error uploading avatar",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  async function onSubmit(values: FormValues) {
+    try {
+      setLoadingProfile(true);
+      
+      // Convert year_of_study to number
+      const yearOfStudy = values.year_of_study ? parseInt(values.year_of_study) : null;
+      
+      // Prepare the profile data
+      const profileData = {
+        ...values,
+        year_of_study: yearOfStudy,
+        interests: selectedInterests,
+        student_type: values.student_type as 'international' | 'local'
+      };
+      
+      // Create the profile
+      await updateProfile(profileData);
+      
+      // Navigate to the feed page
+      navigate('/feed');
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      toast({
+        title: "Error creating profile",
+        description: "There was a problem creating your profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingProfile(false);
+    }
   }
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-8">
-      <Card className="shadow-lg">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Set up your profile</CardTitle>
+    <div className="container max-w-3xl py-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Complete Your Profile</CardTitle>
           <CardDescription>
-            Complete your profile information to get better matches
+            Fill in your details to get started with CampusLink
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Personal Information Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Personal Information</h3>
-                <PersonalInfoFields form={form} />
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              {/* Avatar Upload */}
+              <div className="flex flex-col items-center mb-6">
+                <div className="relative group">
+                  <Avatar className="h-24 w-24 border-2 border-primary/20 transition-all hover:border-primary/40">
+                    {avatarPreview ? (
+                      <AvatarImage src={avatarPreview} alt="Avatar preview" />
+                    ) : (
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        <UserCircle size={48} />
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <label 
+                    htmlFor="avatar-upload" 
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                  >
+                    <Camera size={24} className="text-white" />
+                    <span className="sr-only">Upload avatar</span>
+                  </label>
+                  <input 
+                    id="avatar-upload" 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        handleAvatarUpload(e.target.files[0]);
+                      }
+                    }}
+                    disabled={uploadingAvatar}
+                  />
+                </div>
+                {uploadingAvatar && (
+                  <p className="text-xs text-muted-foreground mt-2">Uploading...</p>
+                )}
               </div>
-
-              {/* Bio Section */}
+              
+              <PersonalInfoFields form={form} />
+              <AcademicFields
+                form={form}
+                universities={universities}
+                majors={majors}
+                selectedUniversityId={selectedUniversityId}
+                onUniversityChange={onUniversityChange}
+              />
+              <NationalityField form={form} />
+              <BioFields 
+                form={form} 
+                bioPrompts={bioPrompts} 
+                onPromptSelect={handleBioPromptSelect} 
+              />
+              
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">About You</h3>
-                <BioFields 
-                  form={form} 
-                  bioPrompts={bioPrompts}
-                  handleBioPromptSelect={handleBioPromptSelect}
+                <FormLabel>Interests</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="interests"
+                  render={() => (
+                    <FormItem>
+                      <FormControl>
+                        <InterestSelector
+                          selectedInterests={selectedInterests}
+                          onInterestChange={handleInterestChange}
+                          maxInterests={10}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
+                {selectedInterests.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium mb-2">Selected Interests:</h4>
+                    <SelectedInterests
+                      selectedInterests={selectedInterests}
+                      onRemoveInterest={(id) => handleInterestChange(selectedInterests.filter(i => i !== id))}
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Academic Information Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Academic Information</h3>
-                <AcademicFields 
-                  form={form}
-                  universities={universities}
-                  majors={majors}
-                  selectedUniversityId={selectedUniversityId}
-                  onUniversityChange={onUniversityChange}
-                />
-              </div>
-
-              {/* Nationality Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Nationality</h3>
-                <NationalityField form={form} />
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={loading}
-              >
-                {loading ? 'Saving profile...' : 'Complete Profile Setup'}
+              <Button type="submit" className="w-full" disabled={loadingProfile}>
+                {loadingProfile ? 'Saving...' : 'Save Profile'}
               </Button>
             </form>
           </Form>
