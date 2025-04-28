@@ -200,7 +200,7 @@ export type MeetupType = {
   id: string;
   creator_id: string;
   invitee_id: string;
-  status: 'pending' | 'confirmed' | 'canceled' | 'completed';
+  status: 'pending' | 'confirmed' | 'canceled' | 'completed' | 'sipped';
   proposed_date: string;
   proposed_time: string;
   location_name: string | null;

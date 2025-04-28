@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { Calendar, Clock, MapPin, Coffee, MessageSquare } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isBefore, startOfToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +46,12 @@ function isLanguageObj(lang: any): lang is { id: string } {
   return typeof lang === 'object' && lang !== null && 'id' in lang;
 }
 
-const MeetupCard: React.FC<{ meetup: Meetup; cardType: 'pending' | 'received' | 'confirmed'; onAccept?: () => void; onReject?: () => void }> = ({ meetup, cardType, onAccept, onReject }) => {
+const MeetupCard: React.FC<{
+  meetup: Meetup;
+  cardType: 'pending' | 'received' | 'confirmed' | 'sipped' | 'completed' | 'declined';
+  onAccept?: () => void;
+  onReject?: () => void;
+}> = ({ meetup, cardType, onAccept, onReject }) => {
   const { profile } = useProfile();
   const navigate = useNavigate();
   const user = profile;
@@ -221,14 +226,6 @@ const MeetupCard: React.FC<{ meetup: Meetup; cardType: 'pending' | 'received' | 
             </div>
           )}
 
-          {/* Confirm/Reject for receiver in received section */}
-          {cardType === 'received' && meetup.status === 'pending' && isReceiver && (
-            <div className="mt-4 flex gap-2">
-              <Button variant="default" size="sm" className="flex-1" onClick={onAccept}>Confirm</Button>
-              <Button variant="outline" size="sm" className="flex-1" onClick={onReject}>Reject</Button>
-            </div>
-          )}
-
           {/* Message button for confirmed meetups */}
           {meetup.status === 'confirmed' && (
             <div className="mt-4 flex gap-2">
@@ -240,6 +237,27 @@ const MeetupCard: React.FC<{ meetup: Meetup; cardType: 'pending' | 'received' | 
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Send Message
+              </Button>
+            </div>
+          )}
+          {/* Accept/Reject buttons for received meetups */}
+          {cardType === 'received' && (
+            <div className="mt-4 flex gap-2">
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="flex-1"
+                onClick={onAccept}
+              >
+                Accept
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="flex-1"
+                onClick={onReject}
+              >
+                Reject
               </Button>
             </div>
           )}
@@ -285,10 +303,13 @@ const Meetups: React.FC = () => {
     id: string;
     first_name: string;
     last_name: string;
+    avatar_url: string;
+    userId: string;
   } | null>(null);
   const [meetups, setMeetups] = useState<Meetup[]>([]);
   const [loading, setLoading] = useState(true);
   const [matchedUsers, setMatchedUsers] = useState<Profile[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -338,46 +359,76 @@ const Meetups: React.FC = () => {
 
   const loadMatchedUsers = async () => {
     if (!user) return;
-    
     try {
-      const { data: matches, error: matchesError } = await supabase
+      const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select('*')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .eq('status', 'accepted');
-
       if (matchesError) throw matchesError;
-
-      const matchedUserIds = (matches || []).map(match => 
+      setMatches(matchesData || []);
+      const matchedUserIds = (matchesData || []).map(match =>
         match.user1_id === user.id ? match.user2_id : match.user1_id
       );
-
       if (matchedUserIds.length === 0) {
         setMatchedUsers([]);
         return;
       }
-
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url, interests, bio')
         .in('id', matchedUserIds);
-
       if (profilesError) throw profilesError;
-
-      setMatchedUsers(profiles || []);
+      setMatchedUsers((profiles || []).map(profile => ({
+        id: profile.id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        avatar_url: profile.avatar_url,
+        interests: profile.interests || [],
+        bio: profile.bio || '',
+        languages: [],
+        nickname: '',
+        cultural_insight: '',
+        location: '',
+        student_type: null,
+        is_verified: false,
+        created_at: '',
+        updated_at: '',
+        university_id: null,
+        campus_id: null,
+        major_id: null,
+        university: null,
+        campus: null,
+      })));
     } catch (error) {
       console.error('Error loading matched users:', error);
       toast('Failed to load matched users');
     }
   };
 
-  const handleNewMeetup = async () => {
+  const handleNewMeetup = async (selectedUser = null) => {
     if (matchedUsers.length === 0) {
       toast('You need to have at least one match to schedule a meetup');
       return;
     }
+    let userToMeet = selectedUser || matchedUsers[0];
+    // Find the match object for this user
+    const match = matches.find(
+      m => (m.user1_id === user.id && m.user2_id === userToMeet.id) ||
+           (m.user2_id === user.id && m.user1_id === userToMeet.id)
+    );
+    if (!match) {
+      toast('No valid match found for this user');
+      return;
+    }
     setIsNewMeetupOpen(true);
-    setSelectedMatch(matchedUsers[0]);
+    setSelectedMatch({
+      id: match.id,
+      first_name: userToMeet.first_name,
+      last_name: userToMeet.last_name,
+      avatar_url: userToMeet.avatar_url,
+      userId: userToMeet.id
+    });
   };
 
   const handleMeetupScheduled = async (meetup: Meetup) => {
@@ -467,10 +518,18 @@ const Meetups: React.FC = () => {
   // Split meetups into sections
   const pendingMeetups = meetups.filter(m => m.status === 'pending' && m.sender_id === user?.id);
   const receivedMeetups = meetups.filter(m => m.status === 'pending' && m.receiver_id === user?.id);
-  const confirmedMeetups = meetups.filter(m => m.status === 'confirmed' && (m.sender_id === user?.id || m.receiver_id === user?.id));
+  const confirmedMeetups = meetups.filter(m => m.status === 'confirmed' && !isBefore(new Date(m.date), startOfToday()) && (m.sender_id === user?.id || m.receiver_id === user?.id));
+  const completedMeetups = meetups.filter(m => m.status === 'completed' as MeetupStatus && isBefore(new Date(m.date), startOfToday()) && (m.sender_id === user?.id || m.receiver_id === user?.id));
+  const sippedMeetups = meetups
+    .filter(m => m.status === 'confirmed' && isBefore(new Date(m.date), startOfToday()) && (m.sender_id === user?.id || m.receiver_id === user?.id))
+    .map(m => ({ ...m, status: 'sipped' as MeetupStatus }));
+  const declinedMeetups = meetups.filter(m => m.status === 'declined' && (m.sender_id === user?.id || m.receiver_id === user?.id));
 
   // Filter confirmed meetups for calendar
   const confirmedMeetupsForCalendar = meetups.filter(m => m.status === 'confirmed');
+
+  // Update calendar meetups to include both confirmed and sipped
+  const calendarMeetups = meetups.filter(m => (m.status === 'confirmed' || m.status === 'sipped'));
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
@@ -483,7 +542,7 @@ const Meetups: React.FC = () => {
           <Coffee className="h-6 w-6" />
           Coffee Meetups
         </h1>
-        <ScheduleMeetupButton onClick={handleNewMeetup} />
+        <ScheduleMeetupButton onClick={() => handleNewMeetup()} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
@@ -496,7 +555,7 @@ const Meetups: React.FC = () => {
             </CardHeader>
             <CardContent>
               <CoffeeMeetupCalendar
-                meetups={confirmedMeetupsForCalendar}
+                meetups={calendarMeetups}
                 onDateSelect={() => {}}
               />
             </CardContent>
@@ -505,10 +564,12 @@ const Meetups: React.FC = () => {
         </div>
         <div className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="received">Received</TabsTrigger>
+              <TabsTrigger value="sipped">Sipped</TabsTrigger>
+              <TabsTrigger value="declined">Declined</TabsTrigger>
             </TabsList>
             <AnimatePresence>
               <TabsContent key="confirmed" value="confirmed" className="space-y-4">
@@ -576,16 +637,58 @@ const Meetups: React.FC = () => {
                   ))
                 )}
               </TabsContent>
+              <TabsContent key="sipped" value="sipped" className="space-y-4">
+                {sippedMeetups.length === 0 ? (
+                  <motion.div
+                    key="sipped-empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-8"
+                  >
+                    <Coffee className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No sipped meetups</p>
+                  </motion.div>
+                ) : (
+                  sippedMeetups.map((meetup) => (
+                    <MeetupCard
+                      key={`sipped-${meetup.id}`}
+                      meetup={meetup}
+                      cardType="sipped"
+                    />
+                  ))
+                )}
+              </TabsContent>
+              <TabsContent key="declined" value="declined" className="space-y-4">
+                {declinedMeetups.length === 0 ? (
+                  <motion.div
+                    key="declined-empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center py-8"
+                  >
+                    <Coffee className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No declined meetups</p>
+                  </motion.div>
+                ) : (
+                  declinedMeetups.map((meetup) => (
+                    <MeetupCard
+                      key={`declined-${meetup.id}`}
+                      meetup={meetup}
+                      cardType="declined"
+                    />
+                  ))
+                )}
+              </TabsContent>
             </AnimatePresence>
           </Tabs>
         </div>
       </div>
       <NewMeetupSheet
         matchId={selectedMatch?.id || ''}
-        selectedUser={selectedMatch || {
-          id: '',
-          first_name: '',
-          last_name: '',
+        selectedUser={{
+          id: selectedMatch?.userId || '',
+          first_name: selectedMatch?.first_name || '',
+          last_name: selectedMatch?.last_name || ''
         }}
         onClose={() => {
           setIsNewMeetupOpen(false);

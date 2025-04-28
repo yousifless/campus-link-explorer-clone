@@ -1,6 +1,6 @@
 import { Profile } from './auth';
 
-export type MeetupStatus = 'pending' | 'confirmed' | 'declined' | 'rescheduled' | 'cancelled';
+export type MeetupStatus = 'pending' | 'confirmed' | 'declined' | 'rescheduled' | 'cancelled' | 'sipped';
 
 export interface CoffeeMeetup {
   id: string;

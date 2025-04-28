@@ -27,6 +27,7 @@ import StorageTestPage from './pages/StorageTestPage';
 import { ProfilePage } from './components/profile/ProfilePage';
 import MeetupPage from './pages/MeetupPage';
 import Dashboard from './pages/Dashboard';
+import MeetupDetails from './pages/MeetupDetails';
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ function App() {
                             <Route path="/deals" element={<PrivateRoute component={Deals} />} />
                             <Route path="/meetups" element={<PrivateRoute component={Meetups} />} />
                             <Route path="/meetup/:id" element={<PrivateRoute component={MeetupPage} />} />
+                            <Route path="/meetups/:id" element={<PrivateRoute component={MeetupDetails} />} />
                             <Route path="/chat" element={<PrivateRoute component={Chat} />} />
                             <Route path="/chat/:id" element={<PrivateRoute component={DirectChat} />} />
                             <Route path="/chat-test" element={<PrivateRoute component={ChatTest} />} />

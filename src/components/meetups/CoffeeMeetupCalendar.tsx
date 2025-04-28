@@ -19,11 +19,14 @@ interface CoffeeMeetupCalendarProps {
 }
 
 const EventIndicator: React.FC<{ status: MeetupStatus }> = ({ status }) => {
+  let dotColor = 'bg-yellow-500';
+  if (status === 'confirmed') dotColor = 'bg-green-500';
+  else if (status === 'sipped') dotColor = 'bg-amber-500';
   return (
     <motion.div
       className={cn(
         'absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full',
-        status === 'confirmed' ? 'bg-green-500' : 'bg-yellow-500'
+        dotColor
       )}
       animate={{
         scale: [1, 1.2, 1],
@@ -50,6 +53,8 @@ const getMeetupStatusColor = (status: MeetupStatus) => {
       return 'bg-blue-100 text-blue-800';
     case 'cancelled':
       return 'bg-gray-100 text-gray-800';
+    case 'sipped':
+      return 'bg-amber-100 text-amber-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }
