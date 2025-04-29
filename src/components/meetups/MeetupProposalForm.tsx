@@ -1,10 +1,10 @@
+
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { createMeetup } from '@/services/coffee-meetups';
 import { motion } from 'framer-motion';
 
 interface MeetupProposalFormProps {
@@ -14,6 +14,18 @@ interface MeetupProposalFormProps {
   onSuccess: () => void;
   onCancel: () => void;
 }
+
+// Define the proper type for createMeetup's parameters
+interface MeetupProposal {
+  match_id: string;
+  receiver_id: string;
+  date: string;
+  message?: string;
+  location_name: string; // Changed from location to location_name
+}
+
+// Import the actual service function
+import { createMeetup as createMeetupService } from '@/services/coffee-meetups';
 
 export const MeetupProposalForm: React.FC<MeetupProposalFormProps> = ({
   matchId,
@@ -32,11 +44,11 @@ export const MeetupProposalForm: React.FC<MeetupProposalFormProps> = ({
     setIsSubmitting(true);
 
     try {
-      await createMeetup({
+      await createMeetupService({
         match_id: matchId,
         receiver_id: receiverId,
         date: selectedDate.toISOString(),
-        location,
+        location_name: location, // Using location_name instead of location
         message
       });
 

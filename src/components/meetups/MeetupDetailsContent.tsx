@@ -38,8 +38,14 @@ function getStatusColor(status: string) {
 }
 
 const MeetupDetailsContent: React.FC<MeetupDetailsContentProps> = ({ meetup }) => {
-  // Determine which user to display (creator or invitee)
-  const person = meetup.invitee || meetup.creator;
+  // Determine which user to display (creator or invitee) and provide default properties if missing
+  const person = meetup.invitee || meetup.creator || {
+    first_name: 'Unknown',
+    last_name: 'User',
+    avatar_url: '',
+    interests: [],
+    languages: []
+  };
 
   // Animation variants for staggered animation
   const containerVariants = {
@@ -95,14 +101,14 @@ const MeetupDetailsContent: React.FC<MeetupDetailsContentProps> = ({ meetup }) =
               <div className="p-1 rounded-full bg-blue-100 dark:bg-blue-900">
                 <Calendar className="h-3.5 w-3.5 text-blue-700 dark:text-blue-300" />
               </div>
-              <span>{formatDate(meetup.proposed_date)}</span>
+              <span>{formatDate(meetup.date)}</span>
             </div>
             
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
               <div className="p-1 rounded-full bg-purple-100 dark:bg-purple-900">
                 <Clock className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
               </div>
-              <span>{meetup.proposed_time}</span>
+              <span>{new Date(meetup.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             
             {meetup.location_name && (

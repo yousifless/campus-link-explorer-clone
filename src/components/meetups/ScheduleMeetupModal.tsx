@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
-import { MapLocationPicker } from './MapLocationPicker';
+import MapLocationPicker from './MapLocationPicker';
 import { createMeetup } from '@/utils/meetups';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -28,7 +29,7 @@ export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
   matchId,
   matchedUser,
 }) => {
-  const [date, setDate] = useState<Date | undefined>();
+  const [date, setDate] = useState<Date | undefined>(new Date());
   const [time, setTime] = useState('');
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -43,20 +44,18 @@ export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
       const [hours, minutes] = time.split(':').map(Number);
       meetupDate.setHours(hours, minutes);
 
-      const formattedDate = meetupDate.toISOString();
-
       await createMeetup({
         title: `Meetup with ${matchedUser.first_name}`,
         description: `Let's meet at ${location.name}!`,
-        date: formattedDate,
+        date: meetupDate,
         location: {
           name: location.name,
           address: location.formatted_address,
           lat: location.geometry.location.lat(),
           lng: location.geometry.location.lng(),
         },
-        matchId,
-        creatorId: matchedUser.id,
+        creator_id: matchedUser.id,
+        invitee_id: matchedUser.id,
       });
 
       toast({
@@ -166,4 +165,4 @@ export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
       </DialogContent>
     </Dialog>
   );
-}; 
+};
