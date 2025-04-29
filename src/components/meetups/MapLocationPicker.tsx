@@ -16,6 +16,21 @@ export interface MapLocationPickerProps {
   onLocationSelected: (location: any) => void;
 }
 
+interface Location {
+  placeId: string;
+  name: string;
+  address: string;
+  formatted_address: string; // Added to match usage in ScheduleMeetupModal
+  lat: number;
+  lng: number;
+  geometry: { // Added to match usage in ScheduleMeetupModal
+    location: {
+      lat: () => number;
+      lng: () => number;
+    }
+  };
+}
+
 const mapContainerStyle = {
   width: '100%',
   height: '300px',
@@ -33,7 +48,7 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({ onLocationSelecte
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [markerPosition, setMarkerPosition] = useState<google.maps.LatLngLiteral | null>(null);
-  const [selectedPlace, setSelectedPlace] = useState<any>(null);
+  const [selectedPlace, setSelectedPlace] = useState<Location | null>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const handlePlaceSelect = () => {
@@ -45,8 +60,15 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({ onLocationSelecte
           placeId: place.place_id,
           name: place.name || '',
           address: place.formatted_address || '',
+          formatted_address: place.formatted_address || '', // Added to match usage in ScheduleMeetupModal
           lat: place.geometry.location.lat(),
           lng: place.geometry.location.lng(),
+          geometry: {
+            location: {
+              lat: () => place.geometry!.location!.lat(),
+              lng: () => place.geometry!.location!.lng()
+            }
+          }
         };
         
         setMarkerPosition({
@@ -79,12 +101,23 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({ onLocationSelecte
       geocoder.geocode({ location: { lat, lng } }, (results, status) => {
         if (status === "OK" && results && results[0]) {
           const place = results[0];
+          const placeName = place.address_components ? 
+            place.address_components[0].long_name : 
+            'Selected location';
+            
           const location = {
             placeId: place.place_id,
-            name: place.name || place.formatted_address?.split(',')[0] || 'Selected location',
+            name: placeName,
             address: place.formatted_address || '',
+            formatted_address: place.formatted_address || '', // Added to match usage in ScheduleMeetupModal
             lat,
             lng,
+            geometry: {
+              location: {
+                lat: () => lat,
+                lng: () => lng
+              }
+            }
           };
           
           setSelectedPlace(location);

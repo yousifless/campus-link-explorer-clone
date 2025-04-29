@@ -28,8 +28,15 @@ interface Location {
   placeId: string;
   name: string;
   address: string;
+  formatted_address: string;
   lat: number;
   lng: number;
+  geometry: {
+    location: {
+      lat: () => number;
+      lng: () => number;
+    }
+  };
 }
 
 export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({

@@ -22,7 +22,13 @@ export const MeetupActions: React.FC<MeetupActionsProps> = ({
   const handleAction = async (action: 'accept' | 'decline') => {
     try {
       const status: MeetupStatus = action === 'accept' ? 'confirmed' : 'declined';
-      const updatedMeetup = await updateMeetup(meetup.id, {
+      // Convert meetup.status to MeetupStatus type
+      const typedMeetup: CoffeeMeetup = {
+        ...meetup,
+        status: meetup.status as MeetupStatus
+      };
+      
+      const updatedMeetup = await updateMeetup(typedMeetup.id, {
         status: status
       });
 

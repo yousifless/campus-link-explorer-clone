@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MatchType } from '@/types/database';
@@ -59,7 +60,7 @@ const MatchCard = ({
     return interestObj ? interestObj.name : interestId;
   });
 
-  // Construct the profileData object for StudentProfileCard
+  // Construct the profileData object for StudentProfileCard with fallbacks for missing properties
   const profileData = {
     id: otherUser.id,
     first_name: otherUser.first_name || '',
@@ -71,15 +72,19 @@ const MatchCard = ({
     nationality: otherUser.nationality || '',
     is_verified: otherUser.is_verified,
     university_id: otherUser.university || '',
-    year_of_study: otherUser.year_of_study,
-    location: otherUser.location,
+    year_of_study: (otherUser as any).year_of_study || null,
+    location: (otherUser as any).location || null,
     languages: userLanguages,
     interests: userInterests,
-    cultural_insight: otherUser.cultural_insight,
+    cultural_insight: (otherUser as any).cultural_insight || null,
     university: universityObj ? { id: universityObj.id, name: universityObj.name } : null,
     major: majorObj ? { id: majorObj.id, name: majorObj.name } : null,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    // Adding the missing properties
+    nickname: null,
+    campus_id: null,
+    campus: null,
   };
 
   return (
