@@ -60,4 +60,5 @@ export const ScheduleMeetupButton: React.FC<ScheduleMeetupButtonProps> = ({
   );
 };
 
+// Also include a default export to support both named and default imports
 export default ScheduleMeetupButton;

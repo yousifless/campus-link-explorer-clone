@@ -23,12 +23,13 @@ import Notifications from "./pages/Notifications";
 import Deals from "./pages/Deals";
 import Meetups from "./pages/Meetups";
 import ChatTest from './pages/ChatTest';
-import DirectChat from './pages/DirectChat'; // Fixed default import
+import DirectChat from './pages/DirectChat';
 import StorageTestPage from './pages/StorageTestPage';
-import { ProfilePage } from './pages/ProfilePage';
+import ProfilePage from './pages/ProfilePage';
 import MeetupPage from './pages/MeetupPage';
 import Dashboard from './pages/Dashboard';
 import MeetupDetails from './pages/MeetupDetails';
+import HomePage from "./pages/HomePage";
 
 const queryClient = new QueryClient();
 
@@ -46,7 +47,8 @@ function App() {
                       <div className="min-h-screen bg-gray-50">
                         <MainLayout>
                           <Routes>
-                            <Route path="/" element={<Index />} />
+                            <Route path="/" element={<HomePage />} />
+                            <Route path="/index" element={<Index />} />
                             <Route path="/feed" element={<PrivateRoute component={Feed} />} />
                             <Route path="/profile" element={<PrivateRoute component={ProfilePage} />} />
                             <Route path="/profile-setup" element={<PrivateRoute component={ProfileSetup} />} />

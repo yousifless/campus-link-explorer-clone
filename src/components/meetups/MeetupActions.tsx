@@ -22,7 +22,8 @@ export const MeetupActions: React.FC<MeetupActionsProps> = ({
   const handleAction = async (action: 'accept' | 'decline') => {
     try {
       const status: MeetupStatus = action === 'accept' ? 'confirmed' : 'declined';
-      // Convert meetup.status to MeetupStatus type
+      
+      // Ensure the meetup status is properly typed
       const typedMeetup: CoffeeMeetup = {
         ...meetup,
         status: meetup.status as MeetupStatus
@@ -47,6 +48,7 @@ export const MeetupActions: React.FC<MeetupActionsProps> = ({
     }
   };
 
+  // Don't show actions if this isn't a pending meetup
   if (meetup.status !== 'pending') {
     return null;
   }
@@ -80,3 +82,5 @@ export const MeetupActions: React.FC<MeetupActionsProps> = ({
     </motion.div>
   );
 };
+
+export default MeetupActions;

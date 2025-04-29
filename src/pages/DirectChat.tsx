@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useConversation } from '@/contexts/ConversationContext';
@@ -9,14 +10,10 @@ import { LoaderIcon, Send, ArrowLeft, Info, Calendar, Video, Phone } from 'lucid
 import { format } from 'date-fns';
 import ScheduleMeetupButton from '@/components/meetups/ScheduleMeetupButton';
 
-// Find the locations where CSS properties are causing type errors and fix them:
-// Line 264: overflowY should be typed as 'auto' | 'hidden' | 'scroll' etc.
-// Line 266, 268: textAlign should be typed as 'left' | 'right' | 'center' etc.
-
-// Example fix:
+// Fix type issues with CSS properties
 const chatContainerStyle: React.CSSProperties = {
   height: '400px',
-  overflowY: 'auto' as 'auto', // Fix: use specific value instead of generic string
+  overflowY: 'auto' as 'auto',
   padding: '16px',
   backgroundColor: '#f9f9f9',
   borderRadius: '8px',
@@ -25,19 +22,19 @@ const chatContainerStyle: React.CSSProperties = {
 };
 
 const emptyStateStyle: React.CSSProperties = {
-  textAlign: 'center' as 'center', // Fix: use specific value instead of generic string
+  textAlign: 'center' as 'center',
   padding: '20px'
 };
 
 const loadingStateStyle: React.CSSProperties = {
-  textAlign: 'center' as 'center', // Fix: use specific value instead of generic string
+  textAlign: 'center' as 'center',
   padding: '20px',
   color: '#718096'
 };
 
 const messagesContainerStyle: React.CSSProperties = {
   display: 'flex',
-  flexDirection: 'column' as 'column' // Fix: explicitly type as 'column'
+  flexDirection: 'column' as 'column'
 };
 
 const DirectChat: React.FC = () => {
@@ -143,14 +140,14 @@ const DirectChat: React.FC = () => {
         Back to all messages
       </Button>
 
-      <Card>
-        <CardHeader className="border-b flex-row items-center justify-between space-y-0 p-4">
+      <Card className="shadow-lg hover:shadow-xl transition-all duration-300">
+        <CardHeader className="border-b flex-row items-center justify-between space-y-0 p-4 bg-gradient-to-r from-blue-500 to-indigo-600">
           <div className="flex items-center gap-2">
             <Avatar>
               <AvatarImage src={otherUser?.avatar_url || ''} alt={otherUser?.first_name} />
-              <AvatarFallback>{otherUser?.first_name?.charAt(0)}{otherUser?.last_name?.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="bg-indigo-200 text-indigo-800">{otherUser?.first_name?.charAt(0)}{otherUser?.last_name?.charAt(0)}</AvatarFallback>
             </Avatar>
-            <CardTitle className="text-lg">{otherUser?.first_name} {otherUser?.last_name}</CardTitle>
+            <CardTitle className="text-lg text-white">{otherUser?.first_name} {otherUser?.last_name}</CardTitle>
           </div>
           
           <div className="flex items-center gap-2">
@@ -162,20 +159,20 @@ const DirectChat: React.FC = () => {
                 onClick={() => {/* Add your meetup scheduling logic here */}}
               />
             )}
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
               <Video className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
               <Phone className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
               <Info className="h-5 w-5" />
             </Button>
           </div>
         </CardHeader>
         
         <CardContent className="p-0">
-          <div style={chatContainerStyle}>
+          <div style={chatContainerStyle} className="bg-gradient-to-b from-gray-50 to-white shadow-inner">
             {messages.length === 0 ? (
               <div style={emptyStateStyle}>
                 <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
@@ -183,38 +180,45 @@ const DirectChat: React.FC = () => {
             ) : (
               <div style={messagesContainerStyle}>
                 {messages.map((msg) => (
-                  <div 
+                  <motion.div 
                     key={msg.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
                     className={`max-w-[75%] rounded-lg px-4 py-2 mb-2 ${
                       msg.sender_id === conversation.other_user.id 
-                        ? 'bg-muted self-start' 
-                        : 'bg-primary text-primary-foreground self-end'
+                        ? 'bg-gray-100 text-gray-800 self-start' 
+                        : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white self-end'
                     }`}
                   >
                     <div>{msg.content}</div>
                     <div className={`text-xs mt-1 ${
                       msg.sender_id === conversation.other_user.id 
-                        ? 'text-muted-foreground' 
-                        : 'text-primary-foreground/80'
+                        ? 'text-gray-500' 
+                        : 'text-blue-100'
                     }`}>
                       {formatMessageDate(msg.created_at)}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
           </div>
           
-          <form onSubmit={handleSend} className="p-4 border-t">
+          <form onSubmit={handleSend} className="p-4 border-t bg-gradient-to-b from-white to-gray-50">
             <div className="flex gap-2">
               <Input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type a message..."
                 disabled={sending}
-                className="flex-1"
+                className="flex-1 bg-white border-gray-200 focus:border-blue-400 transition-all"
               />
-              <Button type="submit" disabled={!message.trim() || sending}>
+              <Button 
+                type="submit" 
+                disabled={!message.trim() || sending}
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              >
                 {sending ? (
                   <LoaderIcon className="h-4 w-4 animate-spin" />
                 ) : (
