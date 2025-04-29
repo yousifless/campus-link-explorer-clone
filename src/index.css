@@ -1,3 +1,6 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 210 48% 50%;
+    --primary: 262 83% 58%; /* Vibrant purple */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -22,7 +25,7 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 291 63% 58%; /* Pink accent */
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
@@ -30,18 +33,18 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 210 48% 50%;
+    --ring: 262 83% 58%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 210 48% 50%;
+    --sidebar-primary: 262 83% 58%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 210 48% 50%;
+    --sidebar-ring: 262 83% 58%;
   }
 
   .dark {
@@ -54,7 +57,7 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 48% 50%;
+    --primary: 262 83% 58%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -63,7 +66,7 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 291 63% 58%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
@@ -71,16 +74,16 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 210 48% 50%;
+    --ring: 262 83% 58%;
     
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 210 48% 50%;
+    --sidebar-primary: 262 83% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 210 48% 50%;
+    --sidebar-ring: 262 83% 58%;
   }
 }
 
@@ -104,7 +107,7 @@
   }
 
   .campus-button-primary {
-    @apply bg-campus-blue text-white hover:bg-campus-lightBlue transition-colors duration-300;
+    @apply bg-brand-purple text-white hover:bg-brand-dark transition-colors duration-300;
   }
   
   .campus-button-secondary {
@@ -112,6 +115,38 @@
   }
 
   .campus-heading {
-    @apply text-campus-blue font-bold;
+    @apply text-brand-purple font-bold;
+  }
+  
+  /* New Animations and Transitions */
+  .hover-scale {
+    @apply transition-transform duration-300 ease-out hover:scale-105;
+  }
+  
+  .hover-lift {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-purple to-brand-pink text-transparent bg-clip-text;
+  }
+  
+  /* Card designs */
+  .glass-card {
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-white/20 dark:border-gray-800/80 shadow-xl;
+  }
+  
+  .profile-card {
+    @apply overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300;
+  }
+  
+  /* Button styles */
+  .button-gradient {
+    @apply bg-gradient-to-r from-brand-purple to-brand-pink text-white font-medium rounded-full px-6 py-2 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98];
+  }
+  
+  /* Input styles */
+  .input-animated {
+    @apply border-b-2 border-gray-300 focus:border-brand-purple transition-all duration-300 outline-none bg-transparent;
   }
 }

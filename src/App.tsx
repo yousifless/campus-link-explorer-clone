@@ -30,6 +30,7 @@ import MeetupPage from './pages/MeetupPage';
 import Dashboard from './pages/Dashboard';
 import MeetupDetails from './pages/MeetupDetails';
 import HomePage from "./pages/HomePage";
+import { ThemeProvider } from "./lib/theme";
 
 const queryClient = new QueryClient();
 
@@ -37,45 +38,47 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthProvider>
-          <ProfileProvider>
-            <MatchingProvider>
-              <ConversationProvider>
-                <NotificationProvider>
-                  <GoogleMapsProvider>
-                    <TooltipProvider>
-                      <div className="min-h-screen bg-gray-50">
-                        <MainLayout>
-                          <Routes>
-                            <Route path="/" element={<HomePage />} />
-                            <Route path="/index" element={<Index />} />
-                            <Route path="/feed" element={<PrivateRoute component={Feed} />} />
-                            <Route path="/profile" element={<PrivateRoute component={ProfilePage} />} />
-                            <Route path="/profile-setup" element={<PrivateRoute component={ProfileSetup} />} />
-                            <Route path="/matches" element={<PrivateRoute component={Matches} />} />
-                            <Route path="/notifications" element={<PrivateRoute component={Notifications} />} />
-                            <Route path="/deals" element={<PrivateRoute component={Deals} />} />
-                            <Route path="/meetups" element={<PrivateRoute component={Meetups} />} />
-                            <Route path="/meetup/:id" element={<PrivateRoute component={MeetupPage} />} />
-                            <Route path="/meetups/:id" element={<PrivateRoute component={MeetupDetails} />} />
-                            <Route path="/chat" element={<PrivateRoute component={Chat} />} />
-                            <Route path="/chat/:id" element={<PrivateRoute component={DirectChat} />} />
-                            <Route path="/chat-test" element={<PrivateRoute component={ChatTest} />} />
-                            <Route path="/storage-test" element={<PrivateRoute component={StorageTestPage} />} />
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/signup" element={<SignUp />} />
-                            <Route path="/dashboard" element={<PrivateRoute component={Dashboard} />} />
-                            <Route path="*" element={<NotFound />} />
-                          </Routes>
-                        </MainLayout>
-                      </div>
-                    </TooltipProvider>
-                  </GoogleMapsProvider>
-                </NotificationProvider>
-              </ConversationProvider>
-            </MatchingProvider>
-          </ProfileProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ProfileProvider>
+              <MatchingProvider>
+                <ConversationProvider>
+                  <NotificationProvider>
+                    <GoogleMapsProvider>
+                      <TooltipProvider>
+                        <div className="min-h-screen bg-background">
+                          <MainLayout>
+                            <Routes>
+                              <Route path="/" element={<HomePage />} />
+                              <Route path="/index" element={<Navigate to="/" replace />} />
+                              <Route path="/feed" element={<PrivateRoute component={Feed} />} />
+                              <Route path="/profile" element={<PrivateRoute component={ProfilePage} />} />
+                              <Route path="/profile-setup" element={<PrivateRoute component={ProfileSetup} />} />
+                              <Route path="/matches" element={<PrivateRoute component={Matches} />} />
+                              <Route path="/notifications" element={<PrivateRoute component={Notifications} />} />
+                              <Route path="/deals" element={<PrivateRoute component={Deals} />} />
+                              <Route path="/meetups" element={<PrivateRoute component={Meetups} />} />
+                              <Route path="/meetup/:id" element={<PrivateRoute component={MeetupPage} />} />
+                              <Route path="/meetups/:id" element={<PrivateRoute component={MeetupDetails} />} />
+                              <Route path="/chat" element={<PrivateRoute component={Chat} />} />
+                              <Route path="/chat/:id" element={<PrivateRoute component={DirectChat} />} />
+                              <Route path="/chat-test" element={<PrivateRoute component={ChatTest} />} />
+                              <Route path="/storage-test" element={<PrivateRoute component={StorageTestPage} />} />
+                              <Route path="/login" element={<Login />} />
+                              <Route path="/signup" element={<SignUp />} />
+                              <Route path="/dashboard" element={<PrivateRoute component={Dashboard} />} />
+                              <Route path="*" element={<NotFound />} />
+                            </Routes>
+                          </MainLayout>
+                        </div>
+                      </TooltipProvider>
+                    </GoogleMapsProvider>
+                  </NotificationProvider>
+                </ConversationProvider>
+              </MatchingProvider>
+            </ProfileProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
       <Sonner />
     </QueryClientProvider>

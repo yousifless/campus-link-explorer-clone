@@ -204,7 +204,7 @@ export const ProfilePage: React.FC = () => {
   const isInView = useInView(tabsRef, { once: false, margin: "-100px" });
 
   useEffect(() => {
-    fetchProfile();
+    handleFetchProfile();
     fetchData();
   }, []);
 
@@ -286,7 +286,7 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const fetchProfile = async () => {
+  const handleFetchProfile = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -1349,4 +1349,4 @@ export const ProfilePage: React.FC = () => {
       )}
     </div>
   );
-}; 
+};

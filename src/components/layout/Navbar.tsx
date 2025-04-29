@@ -20,6 +20,7 @@ import { NotificationCenter } from '@/components/notifications/NotificationCente
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/contexts/ProfileContext';
+import { Logo } from '@/components/ui/logo';
 
 const Navbar = () => {
   const { isAuthenticated, user, signOut } = useAuth();
@@ -58,26 +59,34 @@ const Navbar = () => {
         { path: '/signup', label: 'Sign Up', icon: null },
       ];
 
+  const navItemVariants = {
+    hidden: { opacity: 0, y: -10 },
+    visible: (i: number) => ({
+      opacity: 1, 
+      y: 0,
+      transition: { 
+        delay: 0.05 * i,
+        duration: 0.5,
+        ease: [0.22, 1, 0.36, 1]
+      }
+    })
+  };
+
   return (
     <motion.header 
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "sticky top-0 z-40 w-full transition-all duration-200",
+        "sticky top-0 z-40 w-full transition-all duration-300",
         scrolled 
-          ? "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-md" 
+          ? "bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-md" 
           : "bg-transparent"
       )}
     >
       <div className="container flex h-16 items-center px-4 sm:px-6">
-        <Link to="/" className="flex items-center space-x-2 mr-4" onClick={closeMenu}>
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-            <Coffee className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">CampusLink</span>
-        </Link>
-
+        <Logo size="md" className="mr-4" />
+        
         {/* Mobile menu button */}
         <div className="flex flex-1 items-center justify-end md:hidden">
           <Button variant="ghost" size="icon" onClick={toggleMenu} className="relative">
@@ -87,27 +96,34 @@ const Navbar = () => {
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center space-x-1 lg:space-x-2 mx-6">
-          {navItems.map((item) => (
-            <Link
+          {navItems.map((item, i) => (
+            <motion.div
               key={item.path}
-              to={item.path}
-              className={cn(
-                "flex items-center space-x-1 px-3 py-2 rounded-full text-sm font-medium transition-colors relative group",
-                isActive(item.path)
-                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
-                  : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-              )}
+              custom={i}
+              initial="hidden"
+              animate="visible"
+              variants={navItemVariants}
             >
-              {item.icon && <span>{item.icon}</span>}
-              <span>{item.label}</span>
-              {isActive(item.path) && (
-                <motion.div
-                  layoutId="nav-indicator"
-                  className="absolute inset-0 rounded-full ring-2 ring-blue-400/30 dark:ring-blue-500/20"
-                  transition={{ type: "spring", duration: 0.5 }}
-                />
-              )}
-            </Link>
+              <Link
+                to={item.path}
+                className={cn(
+                  "flex items-center space-x-1 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 relative group",
+                  isActive(item.path)
+                    ? "text-white bg-gradient-to-r from-brand-purple to-brand-pink shadow-md"
+                    : "text-gray-600 dark:text-gray-400 hover:text-brand-purple dark:hover:text-brand-light hover:bg-gray-100 dark:hover:bg-gray-800/30"
+                )}
+              >
+                {item.icon && <span>{item.icon}</span>}
+                <span>{item.label}</span>
+                {isActive(item.path) && (
+                  <motion.div
+                    layoutId="nav-indicator"
+                    className="absolute inset-0 rounded-full ring-2 ring-brand-purple/30 dark:ring-brand-light/20"
+                    transition={{ type: "spring", duration: 0.5 }}
+                  />
+                )}
+              </Link>
+            </motion.div>
           ))}
           {isAuthenticated && <NotificationCenter />}
         </nav>
@@ -116,11 +132,11 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="fixed inset-0 top-16 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm md:hidden">
             <nav className="container grid gap-y-4 px-4 py-6">
-              {navItems.map((item) => (
+              {navItems.map((item, i) => (
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.3, delay: 0.05 * i }}
                   key={item.path}
                 >
                   <Link
@@ -128,8 +144,8 @@ const Navbar = () => {
                     className={cn(
                       "flex items-center space-x-3 p-3 rounded-lg text-base font-medium transition-colors",
                       isActive(item.path)
-                        ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
-                        : "text-gray-600 dark:text-gray-400"
+                        ? "text-white bg-gradient-to-r from-brand-purple to-brand-pink shadow-md"
+                        : "text-gray-600 dark:text-gray-400 hover:text-brand-purple"
                     )}
                     onClick={closeMenu}
                   >
@@ -143,7 +159,7 @@ const Navbar = () => {
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: navItems.length * 0.05 }}
+                    transition={{ duration: 0.3, delay: navItems.length * 0.05 }}
                     className="flex items-center space-x-3 text-base font-medium"
                   >
                     <NotificationCenter />
@@ -151,7 +167,7 @@ const Navbar = () => {
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: (navItems.length + 1) * 0.05 }}
+                    transition={{ duration: 0.3, delay: (navItems.length + 1) * 0.05 }}
                   >
                     <Button 
                       variant="destructive" 
@@ -174,20 +190,25 @@ const Navbar = () => {
           {isAuthenticated ? (
             <div className="flex items-center gap-4">
               {profile && (
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-brand-purple/30 transition-all duration-300">
                     <AvatarImage src={profile.avatar_url || ''} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-400 to-indigo-500 text-white">
+                    <AvatarFallback className="bg-gradient-to-br from-brand-purple to-brand-pink text-white">
                       {profile.first_name?.[0] || ''}{profile.last_name?.[0] || ''}
                     </AvatarFallback>
                   </Avatar>
                   <span className="hidden lg:inline">{profile.first_name}</span>
-                </div>
+                </motion.div>
               )}
               <Button 
                 variant="outline" 
                 onClick={signOut}
-                className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-900/30"
+                className="border-brand-purple/20 text-brand-purple hover:bg-brand-purple/10 hover:text-brand-dark dark:border-brand-light/20 dark:text-brand-light dark:hover:bg-brand-dark/20"
               >
                 Sign Out
               </Button>
@@ -195,12 +216,12 @@ const Navbar = () => {
           ) : (
             <div className="flex items-center space-x-2">
               <Link to="/login">
-                <Button variant="ghost" className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+                <Button variant="ghost" className="text-gray-600 hover:text-brand-purple dark:text-gray-300 dark:hover:text-brand-light">
                   Log in
                 </Button>
               </Link>
               <Link to="/signup">
-                <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white">
+                <Button className="bg-gradient-to-r from-brand-purple to-brand-pink hover:shadow-lg transition-all duration-300 text-white">
                   Sign up
                 </Button>
               </Link>

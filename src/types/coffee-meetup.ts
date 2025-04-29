@@ -1,7 +1,5 @@
 
-import { ProfileType } from './database';
-
-export type MeetupStatus = 'pending' | 'confirmed' | 'declined' | 'rescheduled' | 'cancelled' | 'sipped';
+export type MeetupStatus = 'pending' | 'confirmed' | 'declined' | 'completed' | 'canceled';
 
 export interface CoffeeMeetup {
   id: string;
@@ -13,39 +11,30 @@ export interface CoffeeMeetup {
   location_address: string;
   location_lat: number | null;
   location_lng: number | null;
-  conversation_starter?: string;
-  additional_notes?: string;
   status: MeetupStatus;
+  conversation_starter?: string | null;
+  additional_notes?: string | null;
   created_at: string;
-  updated_at: string;
-  sender: ProfileType;
-  receiver: ProfileType;
+  updated_at?: string;
+  creator?: any;
+  invitee?: any;
 }
 
-export interface CoffeeMeetupWithProfiles extends CoffeeMeetup {
-  sender: ProfileType;
-  receiver: ProfileType;
+export interface Location {
+  name: string;
+  formatted_address: string;
+  geometry: {
+    location: {
+      lat: number;
+      lng: number;
+    }
+  }
 }
 
-export interface MeetupProposal {
-  match_id: string;
-  receiver_id: string;
-  date: string;
-  location_name: string;
-  location_address: string;
-  location_lat?: number;
-  location_lng?: number;
-  conversation_starter?: string;
-  additional_notes?: string;
-}
-
-export interface MeetupUpdate {
-  status: MeetupStatus;
-  date?: string;
-  location_name?: string;
-  location_address?: string;
-  location_lat?: number;
-  location_lng?: number;
-  conversation_starter?: string;
-  additional_notes?: string;
+export interface MapLocationPickerProps {
+  onSelectLocation: (location: Location) => void;
+  defaultLocation?: {
+    lat: number;
+    lng: number;
+  };
 }
