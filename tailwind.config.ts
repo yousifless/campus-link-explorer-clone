@@ -69,18 +69,6 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				},
-				// New brand colors
-				brand: {
-					purple: '#8B5CF6', // Primary brand color
-					dark: '#6D28D9',   // Darker variant
-					light: '#A78BFA',  // Lighter variant
-					pink: '#D946EF',   // Accent color
-					blue: '#3B82F6',   // Secondary color
-					green: '#10B981',  // Success color
-					yellow: '#F59E0B', // Warning color
-					red: '#EF4444',    // Error color
-					gray: '#4B5563',   // Gray color
 				}
 			},
 			borderRadius: {
@@ -142,35 +130,6 @@ export default {
 					'50%': {
 						opacity: '0.7'
 					}
-				},
-				// New animations
-				'slide-up': {
-					'0%': { transform: 'translateY(20px)', opacity: '0' },
-					'100%': { transform: 'translateY(0)', opacity: '1' }
-				},
-				'slide-down': {
-					'0%': { transform: 'translateY(-20px)', opacity: '0' },
-					'100%': { transform: 'translateY(0)', opacity: '1' }
-				},
-				'slide-left': {
-					'0%': { transform: 'translateX(20px)', opacity: '0' },
-					'100%': { transform: 'translateX(0)', opacity: '1' }
-				},
-				'slide-right': {
-					'0%': { transform: 'translateX(-20px)', opacity: '0' },
-					'100%': { transform: 'translateX(0)', opacity: '1' }
-				},
-				'scale': {
-					'0%': { transform: 'scale(0.8)', opacity: '0' },
-					'100%': { transform: 'scale(1)', opacity: '1' }
-				},
-				'rotate': {
-					'0%': { transform: 'rotate(0deg)' },
-					'100%': { transform: 'rotate(360deg)' }
-				},
-				'bounce-subtle': {
-					'0%, 100%': { transform: 'translateY(0)' },
-					'50%': { transform: 'translateY(-5px)' }
 				}
 			},
 			animation: {
@@ -180,19 +139,7 @@ export default {
 				'fade-up': 'fade-up 0.5s ease-out',
 				'blob': 'blob 7s infinite',
 				'float': 'float 3s ease-in-out infinite',
-				'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
-				// New animations
-				'slide-up': 'slide-up 0.5s ease-out',
-				'slide-down': 'slide-down 0.5s ease-out',
-				'slide-left': 'slide-left 0.5s ease-out',
-				'slide-right': 'slide-right 0.5s ease-out',
-				'scale': 'scale 0.5s ease-out',
-				'rotate': 'rotate 1s linear infinite',
-				'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite'
-			},
-			fontFamily: {
-				sans: ['Inter', 'sans-serif'],
-				display: ['Poppins', 'sans-serif']
+				'pulse-slow': 'pulse-slow 3s ease-in-out infinite'
 			}
 		}
 	},

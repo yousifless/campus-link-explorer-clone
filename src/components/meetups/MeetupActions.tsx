@@ -23,11 +23,17 @@ export const MeetupActions: React.FC<MeetupActionsProps> = ({
     try {
       const status: MeetupStatus = action === 'accept' ? 'confirmed' : 'declined';
       
-      const updatedMeetup = await updateMeetup(meetup.id, {
+      // Ensure the meetup status is properly typed
+      const typedMeetup: CoffeeMeetup = {
+        ...meetup,
+        status: meetup.status as MeetupStatus
+      };
+      
+      const updatedMeetup = await updateMeetup(typedMeetup.id, {
         status: status
       });
 
-      onUpdate(updatedMeetup as CoffeeMeetup);
+      onUpdate(updatedMeetup);
 
       toast({
         title: "Success",

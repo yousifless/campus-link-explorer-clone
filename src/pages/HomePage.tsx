@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowRight, Globe, Users, Coffee, BookOpen, School, Languages, Network } from 'lucide-react';
+import { ArrowRight, Globe, Users, Coffee, BookOpen, School, Languages } from 'lucide-react';
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
@@ -38,7 +38,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-purple to-brand-pink py-16 md:py-24">
+      <section className="relative overflow-hidden bg-gradient-to-br from-indigo-600 to-purple-700 py-16 md:py-24">
         {/* Background animated circles */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-400 opacity-20 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
@@ -54,7 +54,7 @@ const HomePage: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <motion.h1 
-              className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200"
+              className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
@@ -80,7 +80,7 @@ const HomePage: React.FC = () => {
                 transition={{ duration: 0.8, delay: 0.6 }}
               >
                 <Link to="/signup">
-                  <Button size="lg" className="w-full sm:w-auto px-8 py-6 text-lg font-medium bg-white text-brand-purple hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
+                  <Button size="lg" className="w-full sm:w-auto px-8 py-6 text-lg font-medium bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
                     Join Now <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
@@ -97,7 +97,7 @@ const HomePage: React.FC = () => {
                 transition={{ duration: 0.8, delay: 0.6 }}
               >
                 <Link to="/feed">
-                  <Button size="lg" className="w-full sm:w-auto px-8 py-6 text-lg font-medium bg-white text-brand-purple hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
+                  <Button size="lg" className="w-full sm:w-auto px-8 py-6 text-lg font-medium bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
                     Discover Students <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
@@ -151,7 +151,7 @@ const HomePage: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">How Campus<span className="text-brand-pink">Link</span> Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">How CampusLink Works</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">Our innovative platform makes it easy to connect with students who share your interests and goals</p>
           </motion.div>
           
@@ -252,7 +252,7 @@ const HomePage: React.FC = () => {
                 <div className="absolute -top-6 -left-6 w-24 h-24 bg-indigo-400 opacity-30 rounded-full mix-blend-multiply filter blur-xl"></div>
                 <div className="absolute top-1/3 -right-6 w-32 h-32 bg-purple-400 opacity-30 rounded-full mix-blend-multiply filter blur-xl"></div>
                 <img 
-                  src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1471&q=80" 
+                  src="/lovable-uploads/0c9db494-ff6f-40ca-986c-a7fc9fcb21f9.png" 
                   alt="Student connections" 
                   className="rounded-2xl shadow-2xl relative z-10 border-8 border-white"
                 />
@@ -302,13 +302,13 @@ const HomePage: React.FC = () => {
               
               {!user ? (
                 <Link to="/signup" className="inline-block mt-8">
-                  <Button className="bg-gradient-to-r from-brand-purple to-brand-pink hover:shadow-lg text-white px-8 py-3 text-lg rounded-full transition-all hover:translate-y-[-2px]">
+                  <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-3 text-lg rounded-full transition-all hover:shadow-lg hover:translate-y-[-2px]">
                     Get Started <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
               ) : (
                 <Link to="/feed" className="inline-block mt-8">
-                  <Button className="bg-gradient-to-r from-brand-purple to-brand-pink hover:shadow-lg text-white px-8 py-3 text-lg rounded-full transition-all hover:translate-y-[-2px]">
+                  <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-3 text-lg rounded-full transition-all hover:shadow-lg hover:translate-y-[-2px]">
                     Find Matches <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
@@ -400,7 +400,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* CTA section */}
-      <section className="py-16 bg-gradient-to-r from-brand-purple to-brand-pink text-white">
+      <section className="py-16 bg-gradient-to-r from-indigo-600 to-purple-700 text-white">
         <div className="container mx-auto px-4 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -415,13 +415,13 @@ const HomePage: React.FC = () => {
             
             {!user ? (
               <Link to="/signup">
-                <Button size="lg" variant="secondary" className="px-8 py-6 text-lg font-medium bg-white text-brand-purple hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
+                <Button size="lg" variant="secondary" className="px-8 py-6 text-lg font-medium bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
                   Join CampusLink <ArrowRight className="ml-2" />
                 </Button>
               </Link>
             ) : (
               <Link to="/feed">
-                <Button size="lg" variant="secondary" className="px-8 py-6 text-lg font-medium bg-white text-brand-purple hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
+                <Button size="lg" variant="secondary" className="px-8 py-6 text-lg font-medium bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
                   Find New Connections <ArrowRight className="ml-2" />
                 </Button>
               </Link>
