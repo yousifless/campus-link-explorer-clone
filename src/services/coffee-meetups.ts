@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MeetupStatus, MeetupUpdate } from '@/types/coffee-meetup';
+import { MeetupStatus, MeetupUpdate, CoffeeMeetup } from '@/types/coffee-meetup';
 
 interface MeetupProposal {
   match_id: string;
@@ -39,6 +39,47 @@ export async function createMeetup(params: MeetupProposal) {
   } catch (error) {
     console.error('Error creating meetup:', error);
     toast.error('Failed to create meetup');
+    throw error;
+  }
+}
+
+export async function getMeetups() {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData.user;
+
+    if (!user) {
+      throw new Error("You must be logged in to view meetups");
+    }
+
+    const { data, error } = await supabase
+      .from('coffee_meetups')
+      .select('*, sender:profiles!coffee_meetups_sender_id_fkey(*), receiver:profiles!coffee_meetups_receiver_id_fkey(*)')
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching meetups:', error);
+    toast.error('Failed to load meetups');
+    throw error;
+  }
+}
+
+export async function getMeetupById(meetupId: string): Promise<CoffeeMeetup> {
+  try {
+    const { data, error } = await supabase
+      .from('coffee_meetups')
+      .select('*, sender:profiles!coffee_meetups_sender_id_fkey(*), receiver:profiles!coffee_meetups_receiver_id_fkey(*)')
+      .eq('id', meetupId)
+      .single();
+
+    if (error) throw error;
+    return data as CoffeeMeetup;
+  } catch (error) {
+    console.error('Error fetching meetup details:', error);
+    toast.error('Failed to load meetup details');
     throw error;
   }
 }
