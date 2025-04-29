@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -110,4 +110,4 @@ export const loadMatchedUsers = async (userId: string): Promise<MatchedUser[]> =
     toast.error('Failed to load matched users');
     return [];
   }
-}; 
+};

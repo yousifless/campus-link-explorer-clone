@@ -1,20 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 
-// Use import.meta.env for Vite environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// This file re-exports the standard Supabase client from the integrations folder
+// to maintain backward compatibility with components using this import path
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+import { supabase } from '@/integrations/supabase/client';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  },
-  db: {
-    schema: 'public'
-  }
-}); 
+export { supabase };
