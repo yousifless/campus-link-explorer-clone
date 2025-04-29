@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MeetupType } from '@/types/database';
+import { MeetupType, ProfileType } from '@/types/database';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, MapPin, MessageSquare, User, Coffee, Heart, Languages } from 'lucide-react';
@@ -43,8 +43,9 @@ const MeetupDetailsContent: React.FC<MeetupDetailsContentProps> = ({ meetup }) =
     first_name: 'Unknown',
     last_name: 'User',
     avatar_url: '',
-    interests: [],
-    languages: []
+    nickname: '',
+    interests: [] as string[],
+    languages: [] as { id: string; proficiency: string }[]
   };
 
   // Animation variants for staggered animation

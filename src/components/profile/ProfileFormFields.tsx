@@ -5,11 +5,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UniversityType, MajorType } from '@/types/database';
+import { University, Major } from '@/types/database';
 import MajorSelect from './MajorSelect';
 import NationalitySelect from './NationalitySelect';
 import LanguageSelect from './LanguageSelect';
-import UniversityCampusSelect from './UniversitySelect';
+import { UniversitySelect, CampusSelect } from './UniversitySelect';
 
 export const PersonalInfoFields = ({ form }: { form: any }) => {
   return (
@@ -150,8 +150,8 @@ export const AcademicFields = ({
   onUniversityChange 
 }: {
   form: any;
-  universities: UniversityType[];
-  majors: MajorType[];
+  universities: University[];
+  majors: Major[];
   selectedUniversityId: string;
   onUniversityChange: (id: string) => void;
 }) => {
@@ -162,17 +162,32 @@ export const AcademicFields = ({
         name="university_id"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>University & Campus</FormLabel>
+            <FormLabel>University</FormLabel>
             <FormControl>
-              <UniversityCampusSelect
+              <UniversitySelect
                 universities={universities}
-                selectedUniversityId={selectedUniversityId}
-                selectedCampusId={form.watch('campus_id') || ''}
-                onUniversityChange={(id) => {
-                  onUniversityChange(id);
-                  form.setValue('campus_id', '');
-                }}
-                onCampusChange={(id) => form.setValue('campus_id', id)}
+                value={field.value || ''}
+                onChange={field.onChange}
+                disabled={false}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="campus_id"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Campus</FormLabel>
+            <FormControl>
+              <CampusSelect
+                campuses={[]} // You'll need to populate this with actual campuses data
+                value={field.value || ''}
+                onChange={field.onChange}
+                disabled={!selectedUniversityId}
               />
             </FormControl>
             <FormMessage />
@@ -189,7 +204,7 @@ export const AcademicFields = ({
             <FormControl>
               <MajorSelect
                 majors={majors}
-                value={field.value}
+                value={field.value || ''}
                 onChange={field.onChange}
               />
             </FormControl>

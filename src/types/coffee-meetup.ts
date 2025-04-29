@@ -1,4 +1,5 @@
-import { Profile } from './auth';
+
+import { ProfileType } from './database';
 
 export type MeetupStatus = 'pending' | 'confirmed' | 'declined' | 'rescheduled' | 'cancelled' | 'sipped';
 
@@ -10,20 +11,20 @@ export interface CoffeeMeetup {
   date: string;
   location_name: string;
   location_address: string;
-  location_lat: number;
-  location_lng: number;
+  location_lat: number | null;
+  location_lng: number | null;
   conversation_starter?: string;
   additional_notes?: string;
   status: MeetupStatus;
   created_at: string;
   updated_at: string;
-  sender: Profile;
-  receiver: Profile;
+  sender: ProfileType;
+  receiver: ProfileType;
 }
 
 export interface CoffeeMeetupWithProfiles extends CoffeeMeetup {
-  sender: Profile;
-  receiver: Profile;
+  sender: ProfileType;
+  receiver: ProfileType;
 }
 
 export interface MeetupProposal {
@@ -47,4 +48,4 @@ export interface MeetupUpdate {
   location_lng?: number;
   conversation_starter?: string;
   additional_notes?: string;
-} 
+}

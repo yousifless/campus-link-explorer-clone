@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { CoffeeMeetup } from '@/types/coffee-meetup';
+import { CoffeeMeetup, MeetupStatus } from '@/types/coffee-meetup';
 import { updateMeetup } from '@/services/coffee-meetups';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -20,8 +21,9 @@ export const MeetupActions: React.FC<MeetupActionsProps> = ({
 
   const handleAction = async (action: 'accept' | 'decline') => {
     try {
+      const status: MeetupStatus = action === 'accept' ? 'confirmed' : 'declined';
       const updatedMeetup = await updateMeetup(meetup.id, {
-        status: action === 'accept' ? 'confirmed' : 'declined'
+        status: status
       });
 
       onUpdate(updatedMeetup);
@@ -71,4 +73,4 @@ export const MeetupActions: React.FC<MeetupActionsProps> = ({
       </Button>
     </motion.div>
   );
-}; 
+};

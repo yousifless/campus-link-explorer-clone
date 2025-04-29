@@ -23,6 +23,11 @@ interface ScheduleMeetupModalProps {
   };
 }
 
+// Define interface for MapLocationPicker
+interface MapLocationPickerProps {
+  onLocationSelected: (location: any) => void;
+}
+
 export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
   isOpen,
   onClose,
@@ -47,15 +52,13 @@ export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
       await createMeetup({
         title: `Meetup with ${matchedUser.first_name}`,
         description: `Let's meet at ${location.name}!`,
-        date: meetupDate,
-        location: {
-          name: location.name,
-          address: location.formatted_address,
-          lat: location.geometry.location.lat(),
-          lng: location.geometry.location.lng(),
-        },
-        creator_id: matchedUser.id,
-        invitee_id: matchedUser.id,
+        date: meetupDate.toISOString(),
+        location_name: location.name,
+        location_address: location.formatted_address,
+        location_lat: location.geometry.location.lat(),
+        location_lng: location.geometry.location.lng(),
+        match_id: matchId,
+        receiver_id: matchedUser.id,
       });
 
       toast({
@@ -130,7 +133,7 @@ export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
           <div className="space-y-2">
             <label className="text-sm font-medium">Location</label>
             <MapLocationPicker
-              onPlaceSelected={setLocation}
+              onLocationSelected={setLocation}
             />
           </div>
 

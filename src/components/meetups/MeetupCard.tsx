@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { MeetupType } from '@/types/database';
 import { Card, CardContent } from '@/components/ui/card';
@@ -43,7 +42,7 @@ const MeetupCard: React.FC<MeetupCardProps> = ({ meetup }) => {
   const handleAccept = () => {
     toast({
       title: "Meetup accepted",
-      description: `You have accepted the meetup with ${person?.first_name} on ${formatDate(meetup.proposed_date)}.`,
+      description: `You have accepted the meetup with ${person?.first_name} on ${formatDate(meetup.date)}.`,
     });
   };
 
