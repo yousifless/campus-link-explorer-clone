@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,16 +17,30 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { motion } from 'framer-motion';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useProfile } from '@/contexts/ProfileContext';
 
 const Navbar = () => {
-  const { isAuthenticated, signOut } = useAuth();
+  const { isAuthenticated, user, signOut } = useAuth();
+  const { profile } = useProfile();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const closeMenu = () => setIsMenuOpen(false);
 
   const isActive = (path: string) => location.pathname === path;
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navItems = isAuthenticated
     ? [
@@ -44,34 +59,54 @@ const Navbar = () => {
       ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background">
+    <motion.header 
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className={cn(
+        "sticky top-0 z-40 w-full transition-all duration-200",
+        scrolled 
+          ? "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-md" 
+          : "bg-transparent"
+      )}
+    >
       <div className="container flex h-16 items-center px-4 sm:px-6">
         <Link to="/" className="flex items-center space-x-2 mr-4" onClick={closeMenu}>
-          <span className="font-bold text-xl">CampusLink</span>
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+            <Coffee className="h-5 w-5 text-white" />
+          </div>
+          <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">CampusLink</span>
         </Link>
 
         {/* Mobile menu button */}
         <div className="flex flex-1 items-center justify-end md:hidden">
-          <Button variant="ghost" size="icon" onClick={toggleMenu}>
+          <Button variant="ghost" size="icon" onClick={toggleMenu} className="relative">
             {isMenuOpen ? <X /> : <Menu />}
           </Button>
         </div>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center space-x-4 lg:space-x-6 mx-6">
+        <nav className="hidden md:flex items-center space-x-1 lg:space-x-2 mx-6">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center space-x-1 text-sm font-medium transition-colors hover:text-primary",
+                "flex items-center space-x-1 px-3 py-2 rounded-full text-sm font-medium transition-colors relative group",
                 isActive(item.path)
-                  ? "text-primary"
-                  : "text-muted-foreground"
+                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                  : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
               )}
             >
               {item.icon && <span>{item.icon}</span>}
               <span>{item.label}</span>
+              {isActive(item.path) && (
+                <motion.div
+                  layoutId="nav-indicator"
+                  className="absolute inset-0 rounded-full ring-2 ring-blue-400/30 dark:ring-blue-500/20"
+                  transition={{ type: "spring", duration: 0.5 }}
+                />
+              )}
             </Link>
           ))}
           {isAuthenticated && <NotificationCenter />}
@@ -79,39 +114,56 @@ const Navbar = () => {
 
         {/* Mobile nav */}
         {isMenuOpen && (
-          <div className="fixed inset-0 top-16 z-50 bg-background md:hidden">
+          <div className="fixed inset-0 top-16 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm md:hidden">
             <nav className="container grid gap-y-4 px-4 py-6">
               {navItems.map((item) => (
-                <Link
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2 }}
                   key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center space-x-3 text-base font-medium transition-colors hover:text-primary",
-                    isActive(item.path)
-                      ? "text-primary"
-                      : "text-muted-foreground"
-                  )}
-                  onClick={closeMenu}
                 >
-                  {item.icon && <span>{item.icon}</span>}
-                  <span>{item.label}</span>
-                </Link>
+                  <Link
+                    to={item.path}
+                    className={cn(
+                      "flex items-center space-x-3 p-3 rounded-lg text-base font-medium transition-colors",
+                      isActive(item.path)
+                        ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                        : "text-gray-600 dark:text-gray-400"
+                    )}
+                    onClick={closeMenu}
+                  >
+                    {item.icon && <span>{item.icon}</span>}
+                    <span>{item.label}</span>
+                  </Link>
+                </motion.div>
               ))}
               {isAuthenticated && (
                 <>
-                  <div className="flex items-center space-x-3 text-base font-medium">
-                    <NotificationCenter />
-                  </div>
-                  <Button 
-                    variant="destructive" 
-                    className="mt-4" 
-                    onClick={() => {
-                      signOut();
-                      closeMenu();
-                    }}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: navItems.length * 0.05 }}
+                    className="flex items-center space-x-3 text-base font-medium"
                   >
-                    Sign Out
-                  </Button>
+                    <NotificationCenter />
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: (navItems.length + 1) * 0.05 }}
+                  >
+                    <Button 
+                      variant="destructive" 
+                      className="mt-4 w-full" 
+                      onClick={() => {
+                        signOut();
+                        closeMenu();
+                      }}
+                    >
+                      Sign Out
+                    </Button>
+                  </motion.div>
                 </>
               )}
             </nav>
@@ -120,22 +172,43 @@ const Navbar = () => {
 
         <div className="hidden md:flex flex-1 items-center justify-end">
           {isAuthenticated ? (
-            <Button variant="ghost" onClick={signOut}>
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-4">
+              {profile && (
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
+                    <AvatarImage src={profile.avatar_url || ''} />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-400 to-indigo-500 text-white">
+                      {profile.first_name?.[0] || ''}{profile.last_name?.[0] || ''}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden lg:inline">{profile.first_name}</span>
+                </div>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={signOut}
+                className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-900/30"
+              >
+                Sign Out
+              </Button>
+            </div>
           ) : (
             <div className="flex items-center space-x-2">
               <Link to="/login">
-                <Button variant="ghost">Log in</Button>
+                <Button variant="ghost" className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">
+                  Log in
+                </Button>
               </Link>
               <Link to="/signup">
-                <Button>Sign up</Button>
+                <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white">
+                  Sign up
+                </Button>
               </Link>
             </div>
           )}
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 };
 

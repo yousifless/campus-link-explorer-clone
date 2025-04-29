@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import { Calendar, Clock, MapPin, Coffee, MessageSquare } from 'lucide-react';
+import { Calendar, Clock, MapPin, Coffee, MessageSquare, Heart, Languages, User, CheckCircle, X } from 'lucide-react';
 import { format, isBefore, startOfToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -105,7 +105,7 @@ const MeetupCard: React.FC<{
     navigate(`/chat/${meetup.match_id}`);
   };
 
-  // Unified card layout for all sections
+  // Unified card layout for all sections with enhanced styling
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -113,99 +113,135 @@ const MeetupCard: React.FC<{
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
       className="group"
     >
-      <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg">
+      <Card className="overflow-hidden transition-all duration-200 hover:shadow-lg border-0 bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-900">
         <CardContent className="p-4">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12">
+              <Avatar className="h-12 w-12 border-2 border-blue-100 dark:border-blue-900 shadow-sm">
                 <AvatarImage src={otherUser?.avatar_url || ''} />
-                <AvatarFallback>
+                <AvatarFallback className="bg-gradient-to-br from-blue-400 to-indigo-500 text-white">
                   {otherUser?.first_name?.[0] || ''}{otherUser?.last_name?.[0] || ''}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-semibold">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                   {otherUser?.nickname || `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`}
                 </h3>
-                <p className="text-sm text-muted-foreground">{meetup.location_name}</p>
+                <p className="text-sm text-blue-600 dark:text-blue-400">{meetup.location_name}</p>
               </div>
             </div>
             <Badge variant={
               meetup.status === 'declined' ? 'destructive' :
               meetup.status === 'confirmed' ? 'default' :
+              meetup.status === 'sipped' ? 'default' :
               'secondary'
-            }>
+            } className={`${
+              meetup.status === 'sipped' ? 'bg-green-500 text-white' : 
+              meetup.status === 'pending' ? 'bg-amber-500 text-white' : 
+              ''
+            } px-2.5 py-1 rounded-full font-medium text-xs`}>
               {meetup.status.charAt(0).toUpperCase() + meetup.status.slice(1)}
             </Badge>
           </div>
 
-          {/* User details */}
+          {/* User details with enhanced styling */}
           {(Array.isArray(otherUser?.interests) && otherUser.interests.length > 0) && (
-            <div className="mt-2">
-              <p className="text-sm text-muted-foreground">Interests:</p>
+            <div className="mt-4">
+              <div className="flex items-center gap-1">
+                <Heart className="h-3.5 w-3.5 text-rose-500" />
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Interests:</p>
+              </div>
               <div className="flex flex-wrap gap-1 mt-1">
-                {otherUser.interests.map((interest, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
+                {otherUser.interests.slice(0, 3).map((interest, index) => (
+                  <Badge key={index} variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800 text-xs">
                     {interest}
                   </Badge>
                 ))}
-              </div>
-            </div>
-          )}
-          {(Array.isArray(otherUser?.languages) && otherUser.languages.length > 0) && (
-            <div className="mt-2">
-              <p className="text-sm text-muted-foreground">Languages:</p>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {otherUser.languages.map((language, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {typeof language === 'string' ? language : language.id}
+                {otherUser.interests.length > 3 && (
+                  <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-xs">
+                    +{otherUser.interests.length - 3}
                   </Badge>
-                ))}
+                )}
               </div>
             </div>
           )}
+          
+          {(Array.isArray(otherUser?.languages) && otherUser.languages.length > 0) && (
+            <div className="mt-3">
+              <div className="flex items-center gap-1">
+                <Languages className="h-3.5 w-3.5 text-indigo-500" />
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Languages:</p>
+              </div>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {otherUser.languages.slice(0, 3).map((language, index) => {
+                  const lang = typeof language === 'string' ? language : language.id;
+                  return (
+                    <Badge key={index} variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800 text-xs">
+                      {lang}
+                    </Badge>
+                  );
+                })}
+                {otherUser.languages.length > 3 && (
+                  <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-xs">
+                    +{otherUser.languages.length - 3}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
+          
           {otherUser?.cultural_insight && (
-            <div className="mt-2">
-              <p className="text-sm text-muted-foreground">Cultural insight:</p>
-              <p className="text-sm mt-1">{otherUser.cultural_insight}</p>
+            <div className="mt-3">
+              <div className="flex items-center gap-1">
+                <User className="h-3.5 w-3.5 text-amber-500" />
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Cultural insight:</p>
+              </div>
+              <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">{otherUser.cultural_insight}</p>
             </div>
           )}
 
-          {/* Meetup details */}
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
+          {/* Meetup details with enhanced styling */}
+          <div className="mt-4 space-y-2 pt-3 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+              <div className="p-1 rounded-full bg-blue-100 dark:bg-blue-900">
+                <Calendar className="h-3.5 w-3.5 text-blue-700 dark:text-blue-300" />
+              </div>
               <span>{format(new Date(meetup.date), 'PPP')}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+              <div className="p-1 rounded-full bg-purple-100 dark:bg-purple-900">
+                <Clock className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
+              </div>
               <span>{format(new Date(meetup.date), 'p')}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4" />
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+              <div className="p-1 rounded-full bg-amber-100 dark:bg-amber-900">
+                <MapPin className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+              </div>
               <span>{meetup.location_name}</span>
             </div>
+            
             {meetup.location_lat && meetup.location_lng && (
-              <div className="mt-2">
+              <div className="mt-3">
                 <a
                   href={getDirectionsUrl(meetup.location_lat, meetup.location_lng)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline text-sm font-medium"
                 >
                   <MapPin className="h-4 w-4" />
                   Open in Google Maps
                 </a>
-                <div className="rounded-lg overflow-hidden border w-full max-w-md mt-2">
+                <div className="rounded-lg overflow-hidden border-2 border-white dark:border-gray-800 shadow-md w-full max-w-md mt-2">
                   <img
                     src={getStaticMapUrl(meetup.location_lat, meetup.location_lng)}
                     alt="Map preview"
-                    className="w-full h-40 object-cover"
+                    className="w-full h-40 object-cover transform transition-transform group-hover:scale-105"
                   />
                 </div>
                 {distanceInfo && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                    <MapPin className="h-4 w-4" />
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    <MapPin className="h-3.5 w-3.5" />
                     <span>{distanceInfo.distance} • {distanceInfo.duration} from your location</span>
                   </div>
                 )}
@@ -213,26 +249,31 @@ const MeetupCard: React.FC<{
             )}
           </div>
 
-          {meetup.conversation_starter && (
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground">Conversation Starter:</p>
-              <p className="text-sm mt-1">{meetup.conversation_starter}</p>
-            </div>
-          )}
-          {meetup.additional_notes && (
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground">Additional Notes:</p>
-              <p className="text-sm mt-1">{meetup.additional_notes}</p>
+          {/* Notes and additional info with enhanced styling */}
+          {(meetup.conversation_starter || meetup.additional_notes) && (
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+              {meetup.conversation_starter && (
+                <div className="mb-2">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Conversation Starter:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 italic">{meetup.conversation_starter}</p>
+                </div>
+              )}
+              {meetup.additional_notes && (
+                <div>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Additional Notes:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 italic">{meetup.additional_notes}</p>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Message button for confirmed meetups */}
+          {/* Action buttons with enhanced styling */}
           {meetup.status === 'confirmed' && (
             <div className="mt-4 flex gap-2">
               <Button 
                 variant="default" 
                 size="sm" 
-                className="flex-1"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
                 onClick={handleMessageClick}
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
@@ -240,23 +281,25 @@ const MeetupCard: React.FC<{
               </Button>
             </div>
           )}
-          {/* Accept/Reject buttons for received meetups */}
+          
           {cardType === 'received' && (
             <div className="mt-4 flex gap-2">
               <Button 
                 variant="default" 
                 size="sm" 
-                className="flex-1"
+                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
                 onClick={onAccept}
               >
+                <CheckCircle className="mr-2 h-4 w-4" />
                 Accept
               </Button>
               <Button 
                 variant="destructive" 
                 size="sm" 
-                className="flex-1"
+                className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white"
                 onClick={onReject}
               >
+                <X className="mr-2 h-4 w-4" />
                 Reject
               </Button>
             </div>
@@ -280,17 +323,19 @@ const PopularLocations: React.FC = () => {
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5 }}
     >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
+      <Card className="border-0 shadow-md bg-gradient-to-br from-white to-amber-50 dark:from-gray-800 dark:to-gray-900">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <div className="p-1.5 bg-amber-100 dark:bg-amber-900 rounded-full">
+              <MapPin className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+            </div>
             <span>Popular Locations</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <MapLocationPicker onLocationSelect={() => {}} />
-              </CardContent>
-            </Card>
+        </CardContent>
+      </Card>
     </motion.div>
   );
 };
@@ -532,56 +577,136 @@ const Meetups: React.FC = () => {
   const calendarMeetups = meetups.filter(m => (m.status === 'confirmed' || m.status === 'sipped'));
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-[70vh]">
+        <div className="relative h-20 w-20">
+          <motion.div
+            animate={{ 
+              rotate: 360,
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ 
+              rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+              scale: { duration: 1, repeat: Infinity, repeatType: "mirror" }
+            }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            <Coffee className="h-10 w-10 text-blue-500" />
+          </motion.div>
+        </div>
+        <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">Loading meetups...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Coffee className="h-6 w-6" />
-          Coffee Meetups
+    <div className="container mx-auto py-8 px-4">
+      <motion.div 
+        className="flex items-center justify-between mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-3xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
+          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
+            <Coffee className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+          </div>
+          <span>Coffee Meetups</span>
         </h1>
         <ScheduleMeetupButton onClick={() => handleNewMeetup()} />
-      </div>
+      </motion.div>
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                <span>Calendar</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CoffeeMeetupCalendar
-                meetups={calendarMeetups}
-                onDateSelect={() => {}}
-              />
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <Card className="border-0 shadow-md bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-full">
+                    <Calendar className="h-5 w-5 text-blue-700 dark:text-blue-400" />
+                  </div>
+                  <span>Calendar</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CoffeeMeetupCalendar
+                  meetups={calendarMeetups}
+                  onDateSelect={() => {}}
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
           <PopularLocations />
         </div>
-        <div className="space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="received">Received</TabsTrigger>
-              <TabsTrigger value="sipped">Sipped</TabsTrigger>
-              <TabsTrigger value="declined">Declined</TabsTrigger>
+        
+        <motion.div 
+          className="space-y-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-5 bg-blue-100/50 dark:bg-gray-800 p-1 rounded-lg">
+              <TabsTrigger 
+                value="confirmed"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:shadow-sm rounded-md"
+              >
+                Confirmed
+              </TabsTrigger>
+              <TabsTrigger 
+                value="pending"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:shadow-sm rounded-md"
+              >
+                Pending
+              </TabsTrigger>
+              <TabsTrigger 
+                value="received"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:shadow-sm rounded-md"
+              >
+                Received
+              </TabsTrigger>
+              <TabsTrigger 
+                value="sipped"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:shadow-sm rounded-md"
+              >
+                Sipped
+              </TabsTrigger>
+              <TabsTrigger 
+                value="declined"
+                className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 data-[state=active]:shadow-sm rounded-md"
+              >
+                Declined
+              </TabsTrigger>
             </TabsList>
-            <AnimatePresence>
-              <TabsContent key="confirmed" value="confirmed" className="space-y-4">
+            
+            <AnimatePresence mode="wait">
+              <TabsContent key="confirmed" value="confirmed" className="space-y-4 mt-6">
                 {confirmedMeetups.length === 0 ? (
                   <motion.div
                     key="confirmed-empty"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="text-center py-8"
+                    className="text-center py-12 bg-white/50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700"
                   >
-                    <Coffee className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No confirmed meetups</p>
+                    <motion.div
+                      animate={{ 
+                        rotate: [0, 10, -10, 0],
+                      }}
+                      transition={{ 
+                        duration: 2,
+                        repeat: Infinity,
+                        repeatType: "loop"
+                      }}
+                      className="mx-auto w-fit"
+                    >
+                      <Coffee className="h-16 w-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                    </motion.div>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">No confirmed meetups yet</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Schedule a coffee date with someone!</p>
                   </motion.div>
                 ) : (
                   confirmedMeetups.map((meetup) => (
@@ -593,6 +718,7 @@ const Meetups: React.FC = () => {
                   ))
                 )}
               </TabsContent>
+              
               <TabsContent key="pending" value="pending" className="space-y-4">
                 {pendingMeetups.length === 0 ? (
                   <motion.div
@@ -681,8 +807,9 @@ const Meetups: React.FC = () => {
               </TabsContent>
             </AnimatePresence>
           </Tabs>
-        </div>
+        </motion.div>
       </div>
+      
       <NewMeetupSheet
         matchId={selectedMatch?.id || ''}
         selectedUser={{
@@ -703,4 +830,3 @@ const Meetups: React.FC = () => {
 };
 
 export default Meetups;
-

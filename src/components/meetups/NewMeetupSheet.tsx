@@ -228,44 +228,50 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] h-[90vh] overflow-y-auto bg-gradient-to-br from-white to-blue-50 dark:from-gray-900 dark:to-gray-800 border-0 shadow-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Coffee className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-full">
+              <Coffee className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
             <span>Schedule a Coffee Meetup</span>
           </DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">
-          <Progress value={(currentStep + 1) * 25} className="h-2" />
-          <div className="mt-4 flex justify-between text-sm text-muted-foreground">
+          <Progress value={(currentStep + 1) * 25} className="h-2 bg-blue-100 dark:bg-blue-900" />
+          <div className="mt-6 flex justify-between text-sm">
             {steps.map((step, index) => (
-              <div
+              <motion.div
                 key={step.id}
-                className={cn(
-                  "flex items-center gap-2",
-                  index <= currentStep && "text-primary"
-                )}
+                className={`flex flex-col items-center gap-1 ${
+                  index <= currentStep ? "text-blue-600 dark:text-blue-400" : "text-gray-400"
+                }`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
               >
-                <div className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full",
-                  index <= currentStep ? "bg-primary text-primary-foreground" : "bg-muted"
-                )}>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                  index <= currentStep 
+                    ? "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400" 
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-400"
+                }`}>
                   {index + 1}
                 </div>
-                <span>{step.title}</span>
-              </div>
+                <span className="text-xs font-medium hidden sm:block">{step.title}</span>
+              </motion.div>
             ))}
           </div>
 
-          <div className="mt-6 space-y-6">
+          <div className="mt-8 space-y-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentStep}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.3 }}
+                className="min-h-[300px]"
               >
                 {currentStep === 0 && (
                   <div className="space-y-4">
@@ -374,11 +380,12 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
               </motion.div>
             </AnimatePresence>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex justify-between pt-4 mt-6 border-t border-gray-200 dark:border-gray-700">
               <Button
                 variant="outline"
                 onClick={handleBack}
                 disabled={currentStep === 0}
+                className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950"
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Back
@@ -387,6 +394,7 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
                 <Button
                   onClick={handleSubmit}
                   disabled={!date || !time || !location || isSubmitting}
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
                 >
                   {isSubmitting ? (
                     <>
@@ -394,11 +402,17 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
                       Scheduling...
                     </>
                   ) : (
-                    'Schedule Meetup'
+                    <>
+                      Schedule Meetup
+                      <Coffee className="ml-2 h-4 w-4" />
+                    </>
                   )}
                 </Button>
               ) : (
-                <Button onClick={handleNext}>
+                <Button 
+                  onClick={handleNext}
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
+                >
                   Next
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
