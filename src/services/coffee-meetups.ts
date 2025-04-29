@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { MeetupStatus, MeetupUpdate } from '@/types/coffee-meetup';
 
 interface MeetupProposal {
   match_id: string;
@@ -38,6 +39,25 @@ export async function createMeetup(params: MeetupProposal) {
   } catch (error) {
     console.error('Error creating meetup:', error);
     toast.error('Failed to create meetup');
+    throw error;
+  }
+}
+
+export async function updateMeetup(meetupId: string, updates: MeetupUpdate) {
+  try {
+    const { data, error } = await supabase
+      .from('coffee_meetups')
+      .update(updates)
+      .eq('id', meetupId)
+      .select('*, sender:profiles!coffee_meetups_sender_id_fkey(*), receiver:profiles!coffee_meetups_receiver_id_fkey(*)')
+      .single();
+
+    if (error) throw error;
+    toast.success(`Meetup ${updates.status} successfully`);
+    return data;
+  } catch (error) {
+    console.error('Error updating meetup:', error);
+    toast.error(`Failed to update meetup`);
     throw error;
   }
 }
