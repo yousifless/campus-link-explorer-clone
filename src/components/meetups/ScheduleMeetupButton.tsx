@@ -6,9 +6,24 @@ import { motion } from 'framer-motion';
 
 interface ScheduleMeetupButtonProps {
   onClick: () => void;
+  matchId?: string;
+  matchedUser?: any;
+  onScheduled?: () => void;
 }
 
-const ScheduleMeetupButton: React.FC<ScheduleMeetupButtonProps> = ({ onClick }) => {
+export const ScheduleMeetupButton: React.FC<ScheduleMeetupButtonProps> = ({ 
+  onClick,
+  matchId,
+  matchedUser,
+  onScheduled
+}) => {
+  const handleClick = () => {
+    onClick();
+    if (onScheduled) {
+      onScheduled();
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ scale: 1.05 }}
@@ -16,7 +31,7 @@ const ScheduleMeetupButton: React.FC<ScheduleMeetupButtonProps> = ({ onClick }) 
       className="relative"
     >
       <Button
-        onClick={onClick}
+        onClick={handleClick}
         className="rounded-full h-14 w-14 p-0 bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg hover:shadow-blue-200 dark:hover:shadow-blue-900"
         aria-label="Schedule new meetup"
       >

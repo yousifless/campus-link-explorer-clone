@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useConversation } from '@/contexts/ConversationContext';
@@ -8,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoaderIcon, Send, ArrowLeft, Info, Calendar, Video, Phone } from 'lucide-react';
 import { format } from 'date-fns';
-import { ScheduleMeetupButton } from '@/components/meetups/ScheduleMeetupButton';
+import ScheduleMeetupButton from '@/components/meetups/ScheduleMeetupButton';
 
 // Find the locations where CSS properties are causing type errors and fix them:
 // Line 264: overflowY should be typed as 'auto' | 'hidden' | 'scroll' etc.
@@ -160,6 +159,7 @@ const DirectChat: React.FC = () => {
                 matchId={id || ''} 
                 matchedUser={otherUser || {}} 
                 onScheduled={() => setShowMeetupButton(false)}
+                onClick={() => {/* Add your meetup scheduling logic here */}}
               />
             )}
             <Button variant="ghost" size="icon">
