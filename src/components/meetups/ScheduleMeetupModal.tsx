@@ -24,8 +24,12 @@ interface ScheduleMeetupModalProps {
 }
 
 // Define interface for MapLocationPicker
-interface MapLocationPickerProps {
-  onLocationSelected: (location: any) => void;
+interface Location {
+  placeId: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
 }
 
 export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
@@ -36,7 +40,7 @@ export const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
 }) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [time, setTime] = useState('');
-  const [location, setLocation] = useState<any>(null);
+  const [location, setLocation] = useState<Location | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 

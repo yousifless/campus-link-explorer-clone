@@ -147,7 +147,7 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
 
   const handlePlaceSelect = (location: Location) => {
     setLocation(location);
-    setCurrentStep(1);
+    setCurrentStep(2);
   };
 
   const handleNext = () => {
@@ -325,7 +325,7 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Location</label>
                       <MapLocationPicker
-                        onLocationSelect={handlePlaceSelect}
+                        onLocationSelected={handlePlaceSelect}
                       />
                     </div>
                   </div>
