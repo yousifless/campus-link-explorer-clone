@@ -1,78 +1,90 @@
-import { ProfileType, SuggestedMatchType } from '@/types/database';
+
+export interface MatchUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  avatar_url?: string | null;
+  student_type?: string;
+  university_id?: string;
+  major_id?: string;
+  bio?: string;
+  languages?: { id: string; name: string; proficiency: string }[];
+  interests?: { id: string; name: string }[];
+}
+
+export interface Match {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'unmatched';
+  created_at: string;
+  matched_at?: string | null;
+  match_score?: number;
+  user1: MatchUser;
+  user2: MatchUser;
+}
 
 export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'unmatched';
 
-export interface MatchType {
+export interface MatchingContextType {
+  matches: Match[];
+  pendingMatches: Match[];
+  acceptedMatches: Match[];
+  loading: boolean;
+  error: Error | null;
+  fetchMatches: () => Promise<void>;
+  acceptMatch: (matchId: string) => Promise<void>;
+  rejectMatch: (matchId: string) => Promise<void>;
+  unmatchUser: (matchId: string) => Promise<void>;
+  getMatchById: (matchId: string) => Match | undefined;
+  getMatchByUserId: (userId: string) => Match | undefined;
+}
+
+export interface ConversationType {
   id: string;
+  match_id: string;
   created_at: string;
   updated_at: string;
   user1_id: string;
   user2_id: string;
-  status: MatchStatus;
-  initiator_id?: string; // Made optional since it may not be present in all cases
-  user1_status: string;
-  user2_status: string;
-  user1?: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    university: string | null;
-    student_type: string | null;
-    major: string | null;
-    bio: string | null;
-    nationality: string | null;
-    is_verified: boolean;
-  };
-  user2?: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    university: string | null;
-    student_type: string | null;
-    major: string | null;
-    bio: string | null;
-    nationality: string | null;
-    is_verified: boolean;
-  };
-  otherUser: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    nickname?: string | null;
-    avatar_url: string | null;
-    university_id?: string | null;
-    campus_id?: string | null;
-    major_id?: string | null;
-    bio: string | null;
-    nationality: string | null;
-    year_of_study?: number | null;
-    student_type: string | null;
-    cultural_insight?: string | null;
-    location?: string | null;
-    is_verified: boolean;
-    created_at?: string;
-    updated_at?: string;
-    interests?: string[];
-    languages?: { id: string; proficiency: string }[];
-    common_interests: number;
-    common_languages: number;
-    match_score: number;
-  };
 }
 
-export interface MatchingContextType {
-  matches: MatchType[];
-  possibleMatches: MatchType[];
-  myPendingMatches: MatchType[];
-  theirPendingMatches: MatchType[];
-  suggestedMatches?: SuggestedMatchType[]; // Using the proper type from database.ts
-  loading: boolean;
-  fetchMatches: () => Promise<void>;
-  fetchSuggestedMatches?: () => Promise<void>;
-  acceptMatch: (matchId: string) => Promise<void>;
-  rejectMatch: (matchId: string) => Promise<void>;
-  updateMatchStatus: (matchId: string, status: MatchStatus) => Promise<void>;
-  createMatch: (userId: string) => Promise<void>;
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  content?: any;
+  is_read: boolean;
+  read?: boolean;
+  related_id: string;
+  created_at: string;
+}
+
+export interface CoffeeMeetupLocation {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+export interface CoffeeMeetup {
+  id: string;
+  match_id: string;
+  sender_id: string;
+  receiver_id: string;
+  date: string;
+  location: CoffeeMeetupLocation;
+  location_name?: string;
+  location_address?: string;
+  location_lat?: number;
+  location_lng?: number;
+  conversation_starter?: string;
+  additional_notes?: string;
+  status: 'pending' | 'confirmed' | 'declined' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  sender?: MatchUser;
+  receiver?: MatchUser;
 }

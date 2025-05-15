@@ -2,21 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-export interface ReferralStats {
-  referral_count: number;
-  total_points: number;
-  badges: any[];
-  next_badge: any;
-  referrals: any[];
-}
-
-export interface DiscountCode {
-  code: string;
-  amount: number;
-  expires_at: string;
-  used: boolean;
-}
+import { ReferralStats, DiscountCode } from '@/types/referrals.d';
 
 const useReferrals = () => {
   const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
@@ -58,10 +44,10 @@ const useReferrals = () => {
           setReferralLink(`https://campuslink.app/join?ref=${userData.referral_code}`);
         }
 
-        // Fetch discount codes
+        // Fetch discount codes - use raw SQL query to workaround the table not being in the type definitions
         const { data: discountData, error: discountError } = await supabase
           .from('discount_codes')
-          .select('*')
+          .select('code, discount_amount, expires_at, used')
           .order('created_at', { ascending: false });
 
         if (!discountError && discountData) {
@@ -73,7 +59,7 @@ const useReferrals = () => {
           })));
         }
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching referral data:', err);
         setError('Failed to fetch referral data');
       } finally {

@@ -25,6 +25,7 @@ import { useIcebreakers } from '@/hooks/use-icebreakers';
 import { profileToIcebreakerUser, IcebreakerResponse } from '@/utils/icebreaker/icebreaker-service';
 import { Card, CardContent } from '@/components/ui/card';
 import NearbyPlacesSelector from '@/components/shared/NearbyPlacesSelector';
+import { PlaceResult } from '@/types/google-maps';
 
 interface Location {
   placeId: string;
