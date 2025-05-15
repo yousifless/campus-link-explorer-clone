@@ -1,10 +1,20 @@
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { ProfileType, University, Campus, Language } from '@/types/database';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { GraduationCap, Globe, Flag, Building, Languages as LanguagesIcon } from 'lucide-react';
+import { 
+  GraduationCap, 
+  Globe, 
+  Flag, 
+  Building, 
+  Languages as LanguagesIcon,
+  Heart,
+  CalendarClock,
+  Map
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface ProfileViewProps {
@@ -29,6 +39,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({
   interests
 }) => {
   if (!profile) return null;
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { duration: 0.5 }
+    }
+  };
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
@@ -67,158 +86,206 @@ const ProfileView: React.FC<ProfileViewProps> = ({
     return userLanguage?.proficiency || 'intermediate';
   };
 
+  const proficiencyColors = {
+    beginner: 'bg-blue-50 border-blue-200 text-blue-700',
+    intermediate: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+    advanced: 'bg-violet-50 border-violet-200 text-violet-700',
+    native: 'bg-purple-50 border-purple-200 text-purple-700',
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-6 items-start">
-        <div className="flex flex-col items-center">
-          <Avatar className="h-24 w-24 md:h-32 md:w-32">
-            <AvatarImage src={profile.avatar_url || undefined} alt={profile.first_name || 'User'} />
-            <AvatarFallback className="bg-blue-600 text-white text-xl">
-              {getInitials(profile.first_name, profile.last_name)}
-            </AvatarFallback>
-          </Avatar>
-        </div>
+    <div className="space-y-8">
+      {profile.bio && (
+        <motion.div 
+          variants={itemVariants} 
+          className="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-100 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-20 h-20 -mt-10 -mr-10 bg-yellow-200 rounded-full opacity-20"></div>
+          <div className="absolute bottom-0 left-0 w-16 h-16 -mb-8 -ml-8 bg-amber-200 rounded-full opacity-20"></div>
+          <p className="text-gray-700 relative z-10">{profile.bio}</p>
+        </motion.div>
+      )}
 
-        <div className="flex-1 space-y-2">
-          <div>
-            <h2 className="text-2xl font-bold">
-              {profile.first_name} {profile.last_name}
-            </h2>
-            {profile.nickname && (
-              <p className="text-gray-500">"{profile.nickname}"</p>
-            )}
-          </div>
-
-          {profile.bio && (
-            <div>
-              <p className="text-gray-600 dark:text-gray-300">{profile.bio}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Education Section */}
+        <motion.div 
+          variants={itemVariants}
+          className="col-span-1"
+        >
+          <Card className="border-0 shadow-md overflow-hidden h-full bg-gradient-to-br from-white to-blue-50">
+            <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+              <h3 className="font-medium text-lg flex items-center gap-2 text-blue-900">
+                <GraduationCap className="text-blue-600" size={20} />
+                Education
+              </h3>
             </div>
-          )}
+            
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="min-w-8 min-h-8 mt-0.5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Building size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">University</p>
+                  <p className="font-medium">{profile.university ? profile.university.name : getUniversityName(profile.university_id)}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="min-w-8 min-h-8 mt-0.5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Map size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Campus</p>
+                  <p className="font-medium">{profile.campus ? profile.campus.name : getCampusName(profile.campus_id)}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="min-w-8 min-h-8 mt-0.5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <GraduationCap size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Major</p>
+                  <p className="font-medium">{getMajorName(profile.major_id)}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="min-w-8 min-h-8 mt-0.5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <CalendarClock size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Year of Study</p>
+                  <p className="font-medium">{profile.year_of_study || 'Not specified'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-          <div className="flex flex-wrap gap-2 pt-2">
-            {profile.student_type && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                {profile.student_type === 'international' ? 'International Student' : 'Local Student'}
-              </Badge>
-            )}
-          </div>
-        </div>
+        {/* Background Section */}
+        <motion.div 
+          variants={itemVariants}
+          className="col-span-1"
+        >
+          <Card className="border-0 shadow-md overflow-hidden h-full bg-gradient-to-br from-white to-purple-50">
+            <div className="p-5 bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100">
+              <h3 className="font-medium text-lg flex items-center gap-2 text-purple-900">
+                <Flag className="text-purple-600" size={20} />
+                Background
+              </h3>
+            </div>
+            
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="min-w-8 min-h-8 mt-0.5 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                  <Globe size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Nationality</p>
+                  <p className="font-medium">{profile.nationality || 'Not specified'}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="min-w-8 min-h-8 mt-0.5 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                  <Flag size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Cultural Insights</p>
+                  <p className="font-medium">{profile.cultural_insight || 'Not specified'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
-      <Separator />
-
-      <div className="space-y-6">
-        <div>
-          <h3 className="font-medium mb-3 flex items-center gap-2">
-            <GraduationCap size={18} className="text-blue-600" />
-            Education
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-gray-500">University</p>
-              <p>{profile.university ? profile.university.name : getUniversityName(profile.university_id)}</p>
-            </div>
-            
-            <div className="space-y-1">
-              <p className="text-sm text-gray-500">Campus</p>
-              <p>{profile.campus ? profile.campus.name : getCampusName(profile.campus_id)}</p>
-            </div>
-            
-            <div className="space-y-1">
-              <p className="text-sm text-gray-500">Major</p>
-              <p>{getMajorName(profile.major_id)}</p>
-            </div>
-            
-            <div className="space-y-1">
-              <p className="text-sm text-gray-500">Year of Study</p>
-              <p>{profile.year_of_study || 'Not specified'}</p>
-            </div>
+      {/* Languages Section */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-0 shadow-md overflow-hidden bg-gradient-to-br from-white to-indigo-50">
+          <div className="p-5 bg-gradient-to-r from-indigo-50 to-violet-50 border-b border-indigo-100">
+            <h3 className="font-medium text-lg flex items-center gap-2 text-indigo-900">
+              <LanguagesIcon className="text-indigo-600" size={20} />
+              Languages
+            </h3>
           </div>
-        </div>
-
-        <Separator />
-        
-        <div>
-          <h3 className="font-medium mb-3 flex items-center gap-2">
-            <Flag size={18} className="text-blue-600" />
-            Background
-          </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-gray-500">Nationality</p>
-              <p>{profile.nationality || 'Not specified'}</p>
-            </div>
-            
-            <div className="space-y-1">
-              <p className="text-sm text-gray-500">Cultural Insights</p>
-              <p>{profile.cultural_insight || 'Not specified'}</p>
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <h3 className="font-medium mb-3 flex items-center gap-2">
-            <LanguagesIcon size={18} className="text-blue-600" />
-            Languages
-          </h3>
-          
-          <div className="flex flex-wrap gap-2">
-            {profile.languages && profile.languages.length > 0 ? (
-              profile.languages.map((language, idx) => {
-                const lang = typeof language === 'string' 
-                  ? language 
-                  : getLanguageName(language.id);
+          <CardContent className="p-5">
+            <div className="flex flex-wrap gap-2">
+              {profile.languages && profile.languages.length > 0 ? (
+                profile.languages.map((language, idx) => {
+                  const lang = typeof language === 'string' 
+                    ? language 
+                    : getLanguageName(language.id);
+                    
+                  const proficiency = typeof language === 'string'
+                    ? 'intermediate'
+                    : language.proficiency;
                   
-                const proficiency = typeof language === 'string'
-                  ? 'intermediate'
-                  : language.proficiency;
-                
-                return (
-                  <Badge 
-                    key={idx} 
-                    variant="outline" 
-                    className="px-3 py-1 bg-indigo-50 border-indigo-200 text-indigo-700"
-                  >
-                    {lang}
-                    <span className="ml-1 text-xs opacity-70">({proficiency})</span>
-                  </Badge>
-                );
-              })
-            ) : (
-              <p className="text-gray-500">No languages specified</p>
-            )}
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3, delay: idx * 0.05 }}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <Badge 
+                        variant="outline" 
+                        className={`px-3 py-1.5 ${proficiencyColors[proficiency] || proficiencyColors.intermediate}`}
+                      >
+                        {lang}
+                        <span className="ml-1 text-xs opacity-80">({proficiency})</span>
+                      </Badge>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <p className="text-gray-500">No languages specified</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Interests Section */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-0 shadow-md overflow-hidden bg-gradient-to-br from-white to-pink-50">
+          <div className="p-5 bg-gradient-to-r from-pink-50 to-rose-50 border-b border-pink-100">
+            <h3 className="font-medium text-lg flex items-center gap-2 text-pink-900">
+              <Heart className="text-pink-600" size={20} />
+              Interests
+            </h3>
           </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <h3 className="font-medium mb-3 flex items-center gap-2">
-            <Globe size={18} className="text-blue-600" />
-            Interests
-          </h3>
           
-          <div className="flex flex-wrap gap-2">
-            {profile.interests && profile.interests.length > 0 ? (
-              profile.interests.map((interestId, idx) => (
-                <Badge 
-                  key={idx} 
-                  variant="outline" 
-                  className="px-3 py-1 bg-green-50 border-green-200 text-green-700"
-                >
-                  {getInterestName(interestId)}
-                </Badge>
-              ))
-            ) : (
-              <p className="text-gray-500">No interests specified</p>
-            )}
-          </div>
-        </div>
-      </div>
+          <CardContent className="p-5">
+            <div className="flex flex-wrap gap-2">
+              {profile.interests && profile.interests.length > 0 ? (
+                profile.interests.map((interestId, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: idx * 0.05 }}
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <Badge 
+                      variant="outline" 
+                      className="px-3 py-1.5 bg-pink-50 border-pink-200 text-pink-700"
+                    >
+                      {getInterestName(interestId)}
+                    </Badge>
+                  </motion.div>
+                ))
+              ) : (
+                <p className="text-gray-500">No interests specified</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 };
