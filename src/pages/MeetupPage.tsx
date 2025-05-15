@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { CoffeeMeetupCalendar } from '@/components/meetups/CoffeeMeetupCalendar';
 import { MeetupProposalForm } from '@/components/meetups/MeetupProposalForm';
-import { MeetupActions } from '@/components/meetups/MeetupActions';
+import MeetupActions from '@/components/meetups/MeetupActions'; // Changed from named to default import
 import { getMeetups, getMeetupById } from '@/services/coffee-meetups';
 import { CoffeeMeetup } from '@/types/coffee-meetup';
 import { useToast } from '@/components/ui/use-toast';
@@ -134,4 +134,4 @@ const MeetupPage: React.FC = () => {
   );
 };
 
-export default MeetupPage; 
+export default MeetupPage;
