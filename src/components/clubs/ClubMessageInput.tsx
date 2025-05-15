@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Send, Image as ImageIcon, Mic, X, Loader2 } from 'lucide-react';
 import { supabase } from '@/utils/supabase';
@@ -231,4 +232,4 @@ export default function ClubMessageInput({ onSend, disabled, loading }: ClubMess
       </form>
     </div>
   );
-} 
+}
