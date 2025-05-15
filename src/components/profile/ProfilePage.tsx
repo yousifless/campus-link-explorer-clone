@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,7 +48,7 @@ import {
 } from "@/components/ui/select";
 import { AvailabilityCalendar } from '@/components/profile/AvailabilityCalendar';
 import { InterestsModal } from '@/components/profile/InterestsModal';
-import { LanguagesModal } from '@/components/profile/LanguagesModal';
+import LanguagesModal from '@/components/profile/LanguagesModal'; // Fixed: Changed from named import to default import
 import { MeetupPreferences } from '@/components/profile/MeetupPreferences';
 import { useAuth } from '@/contexts/AuthContext';
 import UserBadges from '@/components/profile/UserBadges';

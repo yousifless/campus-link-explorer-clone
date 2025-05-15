@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Check, Languages, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -22,6 +23,11 @@ type LanguagesByRegion = {
   [region: string]: Language[];
 };
 
+// We need to add region to our Language type if it doesn't exist
+interface LanguageWithRegion extends Language {
+  region?: string;
+}
+
 const LanguagesModal: React.FC<LanguagesModalProps> = ({ open, onOpenChange, userLanguages = [], onSave }) => {
   const [languagesByRegion, setLanguagesByRegion] = useState<LanguagesByRegion>({});
   const [filteredLanguagesByRegion, setFilteredLanguagesByRegion] = useState<LanguagesByRegion>({});
@@ -41,7 +47,8 @@ const LanguagesModal: React.FC<LanguagesModalProps> = ({ open, onOpenChange, use
       
       if (data) {
         // Group languages by region with proper type safety
-        const languagesByRegion = data.reduce<LanguagesByRegion>((acc, language: Language) => {
+        const languagesByRegion = data.reduce<LanguagesByRegion>((acc, language: LanguageWithRegion) => {
+          // Use a default region if region field doesn't exist
           const region = language.region || 'Other';
           if (!acc[region]) {
             acc[region] = [];
