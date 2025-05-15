@@ -103,3 +103,9 @@
     "vite": "^5.4.1"
   }
 }
+{
+  "scripts": {
+    "start": "bun run src/index.ts"
+  }
+}
+
