@@ -170,9 +170,9 @@ const ClubCalendar = ({ clubId, isAdmin = false }) => {
         const formattedEvents = data.map(meetup => ({
           id: meetup.id,
           title: meetup.title,
-          start: new Date(meetup.start_time),
-          end: new Date(meetup.end_time),
-          location: meetup.location,
+          start: new Date(`${meetup.date}T${meetup.time || '00:00:00'}`),
+          end: new Date(`${meetup.date}T${meetup.end_time || '00:00:00'}`),
+          location: meetup.location_name || 'No location',
           description: meetup.description,
           allDay: false,
           resource: meetup

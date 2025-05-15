@@ -60,7 +60,7 @@ const UserBadges: React.FC<UserBadgesProps> = ({
         if (error) throw error;
         
         // Transform data to match ReferralBadge type
-        const formattedBadges: ReferralBadge[] = userBadges.map(item => ({
+        const badgesData: ReferralBadge[] = userBadges.map(item => ({
           id: item.referral_badges.id,
           name: item.referral_badges.name,
           description: item.referral_badges.description,
@@ -69,7 +69,11 @@ const UserBadges: React.FC<UserBadgesProps> = ({
           earned_at: item.earned_at
         }));
         
-        setBadges(formattedBadges);
+        // Fix the type issue by casting the id to number
+        setBadges(badgesData.map(badge => ({
+          ...badge,
+          id: Number(badge.id) // Convert string id to number
+        })) as ReferralBadge[]);
       } catch (error) {
         console.error('Error fetching badges:', error);
       } finally {
@@ -191,4 +195,4 @@ const UserBadges: React.FC<UserBadgesProps> = ({
   );
 };
 
-export default UserBadges; 
+export default UserBadges;

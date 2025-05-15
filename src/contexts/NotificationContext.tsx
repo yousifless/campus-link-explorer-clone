@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -34,18 +33,30 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (error) throw error;
       if (!data) return;
 
-      // Convert to NotificationType[]
-      const typedNotifications: NotificationType[] = data.map(notification => ({
+      // Fix the type mismatch by properly mapping to the Notification type
+      setNotifications(data.map(notification => ({
         id: notification.id,
         user_id: notification.user_id,
         type: notification.type,
-        content: notification.content,
-        is_read: notification.is_read,
+        title: notification.type, // Add missing property
+        message: notification.content, // Map content to message
+        read: notification.is_read, // Map is_read to read
         related_id: notification.related_id,
         created_at: notification.created_at
-      }));
+      })));
 
-      setNotifications(typedNotifications);
+      // Convert to NotificationType[]
+      // const typedNotifications: NotificationType[] = data.map(notification => ({
+      //   id: notification.id,
+      //   user_id: notification.user_id,
+      //   type: notification.type,
+      //   content: notification.content,
+      //   is_read: notification.is_read,
+      //   related_id: notification.related_id,
+      //   created_at: notification.created_at
+      // }));
+
+      // setNotifications(typedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {

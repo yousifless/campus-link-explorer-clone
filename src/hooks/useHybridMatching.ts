@@ -68,12 +68,16 @@ export const useHybridMatching = () => {
       });
       
       // Transform profiles to include languages
-      const transformedProfiles = data.map(profile => ({
-        ...profile,
-        languages: userLanguagesMap.get(profile.id) || []
-      })) as ProfileType[];
+      const potentialMatches = data.map(profile => {
+        // Create university and campus objects from the ids
+        return {
+          ...profile,
+          university: { id: profile.university_id, name: '' },
+          campus: { id: profile.campus_id, name: '' }
+        } as unknown as ProfileType;
+      });
       
-      setPotentialMatches(transformedProfiles);
+      setPotentialMatches(potentialMatches);
     } catch (err) {
       console.error('Error fetching potential matches:', err);
       setError('Failed to fetch potential matches');
@@ -189,4 +193,4 @@ export const useHybridMatching = () => {
     resetWeights,
     findMatches
   };
-}; 
+};

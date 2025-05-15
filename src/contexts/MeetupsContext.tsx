@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
-import { Meetup } from '../types/database';
+import { supabase } from '@/lib/supabase';
+import { CoffeeMeetup } from '@/types/meetings';
 import { useAuth } from './AuthContext';
 
 interface MeetupsContextType {
-  meetups: Meetup[];
+  meetups: CoffeeMeetup[];
   fetchMeetups: () => Promise<void>;
   acceptMeetup: (meetupId: string) => Promise<void>;
   declineMeetup: (meetupId: string) => Promise<void>;
@@ -15,7 +15,7 @@ const MeetupsContext = createContext<MeetupsContextType | undefined>(undefined);
 
 export const MeetupsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [meetups, setMeetups] = useState<Meetup[]>([]);
+  const [meetups, setMeetups] = useState<CoffeeMeetup[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMeetups = async () => {
@@ -26,7 +26,7 @@ export const MeetupsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .select('*')
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order('date', { ascending: false });
-    if (!error && data) setMeetups(data as Meetup[]);
+    if (!error && data) setMeetups(data as CoffeeMeetup[]);
     setLoading(false);
   };
 
@@ -55,4 +55,4 @@ export const useMeetups = () => {
   const context = useContext(MeetupsContext);
   if (!context) throw new Error('useMeetups must be used within a MeetupsProvider');
   return context;
-}; 
+};

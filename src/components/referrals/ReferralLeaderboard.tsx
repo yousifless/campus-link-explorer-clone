@@ -58,16 +58,28 @@ const ReferralLeaderboard: React.FC<ReferralLeaderboardProps> = ({
         if (error) throw error;
         
         // Process the data and add ranks
-        const rankedData = data.map((item: any, index: number) => ({
-          ...item,
-          rank: index + 1,
-          highest_badge: getBadgeFromCount(item.referral_count)
-        }));
+        const setLeaderboardData = (data: any[]) => {
+          setLeaderboard(
+            data.map((item) => {
+              // Cast the item to an object with known properties
+              const typedItem = item as unknown as { 
+                id: string; 
+                first_name: string; 
+                last_name: string;
+                avatar_url: string;
+                referral_count: number;
+                campus_name: string | null;
+              };
+              
+              return typedItem;
+            })
+          );
+        };
         
-        setLeaderboard(rankedData);
+        setLeaderboardData(data);
         
         // If user is logged in, get their rank if not in top N
-        if (user && !rankedData.some(item => item.id === user.id)) {
+        if (user && !leaderboard.some(item => item.id === user.id)) {
           const { data: userData, error: userError } = await supabase
             .rpc('get_user_referral_rank', { 
               user_id: user.id,
@@ -239,4 +251,4 @@ const ReferralLeaderboard: React.FC<ReferralLeaderboardProps> = ({
   );
 };
 
-export default ReferralLeaderboard; 
+export default ReferralLeaderboard;

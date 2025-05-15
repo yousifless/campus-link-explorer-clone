@@ -658,15 +658,14 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.log('No conversation found, creating new one for match:', matchId);
       const { data: newConversation, error: createError } = await supabase
         .from('conversations')
-        .insert([
-          { 
-            match_id: matchId,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        ])
-        .select()
-        .single();
+        .insert({
+          match_id: matchId,
+          user1_id: user.id,
+          user2_id: otherUserId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select();
 
       if (createError) throw createError;
       if (!newConversation) throw new Error('Failed to create conversation');
