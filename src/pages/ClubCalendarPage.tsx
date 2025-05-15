@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -16,7 +17,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 
 // Icons
 import { CalendarDays, Plus, RefreshCw, Filter, Download, Calendar } from 'lucide-react';
@@ -34,6 +34,23 @@ const ClubCalendarPage: React.FC = () => {
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        when: "beforeChildren",
+        staggerChildren: 0.1 
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 }
+  };
   
   // Handle click on calendar event/meetup
   const handleMeetupClick = (meetup: ClubMeetup) => {
@@ -122,7 +139,7 @@ const ClubCalendarPage: React.FC = () => {
         clubsData.forEach((club: any) => {
           clubMap.set(club.id, {
             name: club.name || 'Unknown Club',
-            color: club.color || '#4f46e5' // Default color if none is set
+            color: club.color || '#8B5CF6' // Default color if none is set
           });
         });
         
@@ -130,7 +147,7 @@ const ClubCalendarPage: React.FC = () => {
         const meetupsWithClubDetails = meetupsData.map((meetup: any) => ({
           ...meetup,
           club_name: clubMap.get(meetup.club_id)?.name || 'Unknown Club',
-          club_color: clubMap.get(meetup.club_id)?.color || '#4f46e5'
+          club_color: clubMap.get(meetup.club_id)?.color || '#8B5CF6'
         }));
         
         setUpcomingEvents(meetupsWithClubDetails);
@@ -161,16 +178,6 @@ const ClubCalendarPage: React.FC = () => {
     downloadICSFile(event, `club_events_${format(currentMonth, 'MMM_yyyy')}.ics`);
   };
   
-  // Set previous month
-  const goToPreviousMonth = () => {
-    setCurrentMonth(prev => addMonths(prev, -1));
-  };
-  
-  // Set next month
-  const goToNextMonth = () => {
-    setCurrentMonth(prev => addMonths(prev, 1));
-  };
-  
   // Format meetup time for display
   const formatMeetupTime = (date: string, time?: string) => {
     const eventDate = new Date(date);
@@ -192,62 +199,67 @@ const ClubCalendarPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Club Calendar</h1>
-            <p className="text-muted-foreground">
-              View and manage all your club events in one place
-            </p>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={exportCalendar}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export Calendar
-            </Button>
-            <Button 
-              onClick={() => navigate('/clubs')}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Meetup
-            </Button>
-          </div>
-        </div>
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="container mx-auto px-4 py-8 min-h-screen"
+    >
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <motion.div variants={itemVariants}>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">Club Calendar</h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            View and manage all your club events in one place
+          </p>
+        </motion.div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <ClubCalendar onEventClick={handleMeetupClick} />
-          </div>
-          
-          <div>
+        <motion.div variants={itemVariants} className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={exportCalendar}
+            className="bg-white/90 dark:bg-gray-800/90 border-purple-200 dark:border-gray-700 hover:border-purple-300 hover:bg-purple-50 transition-all"
+          >
+            <Download className="h-4 w-4 mr-2 text-purple-500" />
+            Export Calendar
+          </Button>
+          <Button 
+            onClick={() => navigate('/clubs')}
+            className="bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-all text-white border-none"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Meetup
+          </Button>
+        </motion.div>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div variants={itemVariants} className="lg:col-span-2">
+          <ClubCalendar onEventClick={handleMeetupClick} />
+        </motion.div>
+        
+        <div className="space-y-6">
+          <motion.div variants={itemVariants}>
             <ClubNotifications />
-            
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CalendarDays className="h-5 w-5 mr-2" />
+          </motion.div>
+          
+          <motion.div variants={itemVariants}>
+            <Card className="overflow-hidden border border-purple-100 dark:border-gray-700 shadow-lg bg-white dark:bg-gray-900">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-gray-800 dark:to-gray-700 border-b border-purple-100 dark:border-gray-700">
+                <CardTitle className="flex items-center text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-500">
+                  <CalendarDays className="h-5 w-5 mr-2 text-purple-500" />
                   Upcoming Events
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-300">
                   Events happening in the next 7 days
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-2">
+              <CardContent className="px-2 py-3 max-h-[400px] overflow-y-auto">
                 {loadingEvents ? (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="space-y-3"
+                    className="space-y-3 p-3"
                   >
                     {[1, 2, 3].map((_, i) => (
                       <motion.div
@@ -255,7 +267,7 @@ const ClubCalendarPage: React.FC = () => {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 0.5, x: 0 }}
                         transition={{ duration: 0.5, delay: i * 0.1 }}
-                        className="h-12 bg-gradient-to-r from-blue-100 via-blue-50 to-white animate-pulse rounded-lg"
+                        className="h-16 bg-gradient-to-r from-purple-100 via-purple-50 to-white animate-pulse rounded-lg"
                       />
                     ))}
                   </motion.div>
@@ -271,32 +283,37 @@ const ClubCalendarPage: React.FC = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: i * 0.08 }}
-                        whileHover={{ scale: 1.02, backgroundColor: '#f0f6ff' }}
+                        whileHover={{ scale: 1.02, backgroundColor: '#f5f3ff' }}
                       >
                         <div 
-                          className="relative pl-8 py-3 hover:bg-blue-50 rounded-md transition-colors cursor-pointer" 
+                          className="relative pl-8 py-3 hover:bg-purple-50 dark:hover:bg-gray-800 rounded-md transition-all cursor-pointer" 
                           onClick={() => navigate(`/clubs/${event.club_id}/meetups/${event.id}`)}
                         >
-                          <div 
-                            className="absolute left-2 top-3 h-4 w-4 rounded-full" 
-                            style={{ backgroundColor: event.club_color || '#4f46e5' }} 
-                          />
+                          <div className="absolute left-2 top-3 flex items-center justify-center">
+                            <div 
+                              className="h-4 w-4 rounded-full" 
+                              style={{ backgroundColor: event.club_color || '#8B5CF6' }} 
+                            />
+                            <div className="absolute h-6 w-6 rounded-full animate-ping opacity-30" 
+                              style={{ backgroundColor: event.club_color || '#8B5CF6' }} 
+                            />
+                          </div>
                           <div className="flex flex-col">
-                            <div className="flex items-center">
-                              <p className="text-sm font-medium">{event.title}</p>
-                              <Badge className="ml-2 text-xs" variant="outline" style={{ 
+                            <div className="flex items-center flex-wrap gap-2">
+                              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{event.title}</p>
+                              <Badge className="text-xs" variant="outline" style={{ 
                                 borderColor: event.club_color, 
                                 color: event.club_color 
                               }}>
                                 {event.club_name}
                               </Badge>
                             </div>
-                            <p className="text-xs text-muted-foreground flex items-center">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center mt-0.5">
                               <Clock className="h-3 w-3 mr-1" /> {formatMeetupTime(event.date, event.time)}
                               {event.duration_minutes && <span className="ml-1">({event.duration_minutes} min)</span>}
                             </p>
                             {event.location_name && (
-                              <p className="text-xs text-muted-foreground flex items-center mt-1">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center mt-0.5">
                                 <MapPin className="h-3 w-3 mr-1" /> {event.location_name}
                               </p>
                             )}
@@ -306,24 +323,24 @@ const ClubCalendarPage: React.FC = () => {
                     ))}
                   </motion.div>
                 ) : (
-                  <div className="text-center py-6">
-                    <Calendar className="h-10 w-10 text-gray-300 mx-auto" />
-                    <p className="text-sm text-gray-500 mt-2">No upcoming events</p>
-                    <p className="text-xs text-gray-400">Join more clubs or create a new meetup</p>
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-purple-200 mx-auto" />
+                    <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">No upcoming events</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Join more clubs or create a new meetup</p>
                   </div>
                 )}
               </CardContent>
-              <CardFooter>
-                <Button variant="outline" className="w-full" onClick={() => navigate('/clubs')}>
+              <CardFooter className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-gray-800 dark:to-gray-700 border-t border-purple-100 dark:border-gray-700">
+                <Button variant="outline" className="w-full bg-white/80 dark:bg-gray-800/80 hover:bg-purple-100 dark:hover:bg-gray-700 border-purple-200 dark:border-gray-600 transition-all" onClick={() => navigate('/clubs')}>
                   View All Clubs
                 </Button>
               </CardFooter>
             </Card>
-          </div>
+          </motion.div>
         </div>
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 };
 
-export default ClubCalendarPage; 
+export default ClubCalendarPage;
