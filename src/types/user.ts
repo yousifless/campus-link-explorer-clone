@@ -11,6 +11,16 @@ export interface PersonalityTraits {
   neuroticism: number;
 }
 
+export interface MatchWeights {
+  location: number;
+  interests: number;
+  languages: number;
+  goals: number;
+  availability: number;
+  personality: number;
+  network: number;
+}
+
 export interface UserProfile {
   id: string;
   name: string;

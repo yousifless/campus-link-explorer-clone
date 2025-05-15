@@ -8,12 +8,15 @@ import { Calendar, Clock, MapPin, Coffee, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import MeetupConfirmationIcebreaker from '@/components/icebreaker/MeetupConfirmationIcebreaker';
 
 const MeetupDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [meetup, setMeetup] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchMeetup = async () => {
@@ -48,7 +51,7 @@ const MeetupDetails: React.FC = () => {
   const otherUser = meetup.sender_id === meetup.sender?.id ? meetup.receiver : meetup.sender;
 
   return (
-    <div className="container mx-auto py-8 max-w-2xl">
+    <div className="container mx-auto py-8 max-w-2xl space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -118,6 +121,15 @@ const MeetupDetails: React.FC = () => {
           <Button variant="outline" onClick={() => navigate(-1)} className="mt-4">Back</Button>
         </CardContent>
       </Card>
+      
+      {/* Add icebreakers for confirmed and upcoming meetups */}
+      {meetup && meetup.status === 'confirmed' && new Date(meetup.date) >= new Date() && (
+        <MeetupConfirmationIcebreaker 
+          meetup={meetup}
+          userA={user}
+          userB={otherUser}
+        />
+      )}
     </div>
   );
 };

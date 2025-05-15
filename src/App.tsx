@@ -1,4 +1,3 @@
-
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -30,6 +29,21 @@ import MeetupPage from './pages/MeetupPage';
 import Dashboard from './pages/Dashboard';
 import MeetupDetails from './pages/MeetupDetails';
 import HomePage from "./pages/HomePage";
+import EventDetails from "./pages/EventDetails";
+import Messages from "./pages/Messages";
+import ClubsListPage from "./pages/ClubsListPage";
+import ClubDetailPage from "./pages/ClubDetailPage";
+import ClubMeetupDetailPage from "./pages/ClubMeetupDetailPage";
+import ClubCalendarPage from "./pages/ClubCalendarPage";
+import NewClubPage from "./pages/NewClubPage";
+import JoinClubPage from "./pages/JoinClubPage";
+import ReferralDashboardPage from '@/pages/ReferralDashboardPage';
+import SmartMatchingPage from '@/pages/SmartMatchingPage';
+import ClubManagementPage from './pages/ClubManagementPage';
+
+// Create Meetup Components
+import CreateClubMeetupPage from "./pages/CreateClubMeetupPage";
+import EditClubMeetupPage from "./pages/EditClubMeetupPage";
 
 const queryClient = new QueryClient();
 
@@ -62,9 +76,27 @@ function App() {
                             <Route path="/chat/:id" element={<PrivateRoute component={DirectChat} />} />
                             <Route path="/chat-test" element={<PrivateRoute component={ChatTest} />} />
                             <Route path="/storage-test" element={<PrivateRoute component={StorageTestPage} />} />
+                            <Route path="/messages" element={<PrivateRoute component={Messages} />} />
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<SignUp />} />
                             <Route path="/dashboard" element={<PrivateRoute component={Dashboard} />} />
+                            <Route path="/events" element={<EventDetails />} />
+                            <Route path="/smart-matching" element={<PrivateRoute component={SmartMatchingPage} />} />
+                            
+                            {/* Club Routes */}
+                            <Route path="/clubs" element={<PrivateRoute component={ClubsListPage} />} />
+                            <Route path="/clubs/calendar" element={<PrivateRoute component={ClubCalendarPage} />} />
+                            <Route path="/clubs/new" element={<PrivateRoute component={NewClubPage} />} />
+                            <Route path="/clubs/join" element={<PrivateRoute component={JoinClubPage} />} />
+                            <Route path="/clubs/:clubId" element={<PrivateRoute component={ClubDetailPage} />} />
+                            <Route path="/clubs/:clubId/manage" element={<PrivateRoute component={ClubManagementPage} />} />
+                            <Route path="/clubs/:clubId/meetups/new" element={<PrivateRoute component={CreateClubMeetupPage} />} />
+                            <Route path="/clubs/:clubId/meetups/:meetupId" element={<PrivateRoute component={ClubMeetupDetailPage} />} />
+                            <Route path="/clubs/:clubId/meetups/:meetupId/edit" element={<PrivateRoute component={EditClubMeetupPage} />} />
+                            
+                            {/* Referral routes */}
+                            <Route path="/referrals" element={<PrivateRoute component={ReferralDashboardPage} />} />
+                            
                             <Route path="*" element={<NotFound />} />
                           </Routes>
                         </MainLayout>

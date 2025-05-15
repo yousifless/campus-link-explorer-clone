@@ -6,10 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { CalendarIcon, Clock, MapPin, Search, User, MessageSquare, Coffee, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarIcon, Clock, MapPin, Search, User, MessageSquare, Coffee, ChevronLeft, ChevronRight, Lightbulb, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { GoogleMap, LoadScript, Autocomplete, Marker } from '@react-google-maps/api';
+import { GoogleMap, Autocomplete, Marker } from '@react-google-maps/api';
+import { useGoogleMaps, googleMapsLibraries } from '@/providers/GoogleMapsProvider';
 import { createMeetup, CreateMeetupParams } from '@/utils/meetups';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,6 +21,10 @@ import { supabase } from '@/lib/supabase';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CoffeeMeetup } from '@/types/coffee-meetup';
+import { useIcebreakers } from '@/hooks/use-icebreakers';
+import { profileToIcebreakerUser, IcebreakerResponse } from '@/utils/icebreaker/icebreaker-service';
+import { Card, CardContent } from '@/components/ui/card';
+import NearbyPlacesSelector from '@/components/shared/NearbyPlacesSelector';
 
 interface Location {
   placeId: string;
@@ -35,6 +40,7 @@ interface NewMeetupSheetProps {
     id: string;
     first_name: string;
     last_name: string;
+    avatar_url?: string;
   };
   onClose: () => void;
   isOpen: boolean;
@@ -66,26 +72,11 @@ interface MatchedUser {
   avatar_url: string | null;
 }
 
-const libraries: ("places")[] = ["places"];
-
-const conversationStarters = [
-  "What's your favorite study spot on campus?",
-  "What inspired you to choose your major?",
-  "What's the most interesting class you've taken?",
-  "What's your go-to coffee order?",
-  "What's your favorite way to unwind after classes?",
-  "What's the best book you've read recently?",
-  "What's your favorite campus event?",
-  "What's your dream travel destination?",
-  "What's your favorite local restaurant?",
-  "What's your favorite hobby outside of school?",
-];
-
 const steps = [
   { id: 'date', title: 'Date & Time' },
   { id: 'location', title: 'Location' },
   { id: 'user', title: 'Who to Meet' },
-  { id: 'topics', title: 'Conversation Starters' },
+  { id: 'icebreakers', title: 'Icebreakers' },
 ];
 
 const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: NewMeetupSheetProps) => {
@@ -101,7 +92,9 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [notes, setNotes] = useState('');
-  const [selectedStarter, setSelectedStarter] = useState<string>('');
+  const [otherUserProfile, setOtherUserProfile] = useState<any>(null);
+  const [generatedIcebreakers, setGeneratedIcebreakers] = useState<IcebreakerResponse | null>(null);
+  const [isGeneratingIcebreakers, setIsGeneratingIcebreakers] = useState(false);
 
   useEffect(() => {
     const loadMatchedUsers = async () => {
@@ -145,6 +138,27 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
     loadMatchedUsers();
   }, [user]);
 
+  useEffect(() => {
+    const loadOtherUserProfile = async () => {
+      if (!selectedUser?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*, university:universities(*), campus:campuses(*)')
+          .eq('id', selectedUser.id)
+          .single();
+          
+        if (error) throw error;
+        setOtherUserProfile(data);
+      } catch (error) {
+        console.error('Error loading other user profile:', error);
+      }
+    };
+    
+    loadOtherUserProfile();
+  }, [selectedUser]);
+
   const handlePlaceSelect = (location: Location) => {
     setLocation(location);
     setCurrentStep(2);
@@ -186,6 +200,17 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
       const [hours, minutes] = time.split(':').map(Number);
       meetupDate.setHours(hours, minutes);
 
+      // Format conversation starter from icebreakers if available
+      const icebreakersText = generatedIcebreakers ? 
+        `Conversation Starters:
+${generatedIcebreakers.conversationStarters.join('\n')}
+
+Activity Idea: 
+${generatedIcebreakers.activity}
+
+Shared Topic: 
+${generatedIcebreakers.sharedTopic}` : '';
+
       // Insert the meetup
       const { data: meetup, error: meetupError } = await supabase
         .from('coffee_meetups')
@@ -198,7 +223,7 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
           location_address: location.address,
           location_lat: location.lat,
           location_lng: location.lng,
-          conversation_starter: selectedStarter,
+          conversation_starter: icebreakersText,
           additional_notes: notes,
           status: 'pending',
           created_at: new Date().toISOString(),
@@ -209,9 +234,10 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
 
       if (meetupError) throw meetupError;
 
-      // Call onSuccess if provided
+      // Call onSuccess if provided and convert the type properly
       if (onSuccess && meetup) {
-        await onSuccess(meetup as CoffeeMeetup);
+        // Type cast to unknown first, then to CoffeeMeetup to fix the type error
+        await onSuccess(meetup as unknown as CoffeeMeetup);
       }
 
       toast.success('Meetup scheduled successfully!');
@@ -223,6 +249,52 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
       setIsSubmitting(false);
     }
   };
+
+  // Function to generate icebreakers
+  const generateIcebreakers = async () => {
+    if (!user || !otherUserProfile) {
+      toast.error('Cannot generate icebreakers: missing user information');
+      return;
+    }
+    
+    setIsGeneratingIcebreakers(true);
+    try {
+      // Get current user profile
+      const { data: currentUserProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*, university:universities(*), campus:campuses(*)')
+        .eq('id', user.id)
+        .single();
+        
+      if (profileError) throw profileError;
+      
+      // Prepare user data for icebreaker generation
+      const userA = profileToIcebreakerUser(currentUserProfile);
+      const userB = profileToIcebreakerUser(otherUserProfile);
+      
+      // Format meetup details
+      const meetupDate = date ? format(date, 'PPP') : 'Upcoming';
+      const meetupLocation = location?.name || 'Campus café';
+      
+      // Call the generateIcebreakers function
+      const icebreakers = await import('@/utils/icebreaker/icebreaker-service')
+        .then(module => module.generateIcebreakers(userA, userB, meetupDate, meetupLocation));
+      
+      setGeneratedIcebreakers(icebreakers);
+    } catch (error) {
+      console.error('Error generating icebreakers:', error);
+      toast.error('Failed to generate icebreakers. Please try again.');
+    } finally {
+      setIsGeneratingIcebreakers(false);
+    }
+  };
+
+  useEffect(() => {
+    // Generate icebreakers when reaching the final step
+    if (currentStep === 3 && !generatedIcebreakers && !isGeneratingIcebreakers) {
+      generateIcebreakers();
+    }
+  }, [currentStep, generatedIcebreakers, isGeneratingIcebreakers]);
 
   if (!matchId) return null;
 
@@ -287,7 +359,7 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date ? format(date, "PPP") : "Pick a date"}
+                            {date ? format(date, "PPP") : <span>Pick a date</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -324,9 +396,18 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Location</label>
-                      <MapLocationPicker
-                        onLocationSelected={handlePlaceSelect}
+                      <NearbyPlacesSelector
+                        onSelectPlace={handlePlaceSelect}
+                        initialLocation={location}
+                        showCafesOnly={false}
                       />
+                      {location && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                          <h4 className="font-medium text-sm">Selected Location:</h4>
+                          <p className="text-sm">{location.name}</p>
+                          <p className="text-xs text-gray-500">{location.address}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -335,13 +416,13 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Meeting with</label>
-                      <div className="flex items-center gap-3 rounded-lg border p-4">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="h-5 w-5 text-primary" />
-                        </div>
+                      <div className="flex items-center gap-3 p-3 border rounded-md bg-white dark:bg-gray-800">
+                        <Avatar>
+                          <AvatarImage src={selectedUser?.avatar_url || ''} alt={selectedUser?.first_name} />
+                          <AvatarFallback>{selectedUser?.first_name?.[0]}{selectedUser?.last_name?.[0]}</AvatarFallback>
+                        </Avatar>
                         <div>
-                          <p className="font-medium">{selectedUser.first_name} {selectedUser.last_name}</p>
-                          <p className="text-sm text-muted-foreground">Matched User</p>
+                          <p className="font-medium">{selectedUser?.first_name} {selectedUser?.last_name}</p>
                         </div>
                       </div>
                     </div>
@@ -350,31 +431,79 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
 
                 {currentStep === 3 && (
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Conversation Starters</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {conversationStarters.map((starter, index) => (
-                          <Button
-                            key={index}
-                            variant={selectedStarter === starter ? "default" : "outline"}
-                            className="h-auto py-2 text-left"
-                            onClick={() => setSelectedStarter(starter)}
-                          >
-                            {starter}
-                          </Button>
-                        ))}
+                    <div className="mb-4">
+                      <h3 className="font-medium text-lg flex items-center gap-2">
+                        <Lightbulb className="h-5 w-5 text-amber-500" />
+                        <span>Personalized Icebreakers</span>
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        We've generated some conversation starters based on your shared interests and backgrounds.
+                        These will be shared with {selectedUser?.first_name} when they receive your invitation.
+                      </p>
+                    </div>
+                    
+                    {isGeneratingIcebreakers ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+                        <p className="text-sm text-muted-foreground mt-4">
+                          Generating personalized icebreakers...
+                        </p>
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Additional Notes</label>
-                      <Textarea
-                        placeholder="Add any additional notes or questions..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="min-h-[100px]"
-                      />
-                    </div>
+                    ) : generatedIcebreakers ? (
+                      <Card className="bg-amber-50/50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+                        <CardContent className="pt-4">
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="text-sm font-medium">Conversation Starters:</h4>
+                              <ul className="space-y-2 mt-2">
+                                {generatedIcebreakers.conversationStarters.map((starter, index) => (
+                                  <li key={index} className="text-sm bg-white dark:bg-gray-800 p-2 rounded-md">
+                                    {starter}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            
+                            <div>
+                              <h4 className="text-sm font-medium">Activity Idea:</h4>
+                              <p className="text-sm bg-white dark:bg-gray-800 p-2 rounded-md mt-2">
+                                {generatedIcebreakers.activity}
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <h4 className="text-sm font-medium">Shared Topic:</h4>
+                              <p className="text-sm bg-white dark:bg-gray-800 p-2 rounded-md mt-2">
+                                {generatedIcebreakers.sharedTopic}
+                              </p>
+                            </div>
+                            
+                            <div className="pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={generateIcebreakers}
+                                className="w-full"
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Regenerate Icebreakers
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">Failed to generate icebreakers</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={generateIcebreakers}
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>

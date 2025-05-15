@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Campus Link",
+    "slug": "campus-link-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": null,
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": null,
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.campuslink.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": null,
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.campuslink.mobile"
+    },
+    "web": {
+      "favicon": null
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
+    "extra": {
+      "supabaseUrl": "YOUR_SUPABASE_URL",
+      "supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY",
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    },
+    "owner": "your-expo-username",
+    "primaryColor": "#6366f1",
+    "githubUrl": "https://github.com/yourusername/campus-link-mobile"
+  }
+}

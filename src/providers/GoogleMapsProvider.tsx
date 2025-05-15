@@ -1,41 +1,34 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { initializeMaps } from '@/utils/maps';
+import React from 'react';
+import { useLoadScript, Libraries } from '@react-google-maps/api';
 
-interface GoogleMapsContextType {
-  isLoaded: boolean;
-  loadError: Error | null;
-}
+// Define the libraries constant outside to prevent recreation on every render
+export const googleMapsLibraries: Libraries = ['places'];
 
-const GoogleMapsContext = createContext<GoogleMapsContextType>({
-  isLoaded: false,
-  loadError: null,
-});
-
-export const useGoogleMaps = () => useContext(GoogleMapsContext);
+// Create a context for Google Maps
+export const GoogleMapsContext = React.createContext({ isLoaded: false, loadError: null });
 
 export const GoogleMapsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<Error | null>(null);
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    libraries: googleMapsLibraries,
+  });
 
-  useEffect(() => {
-    const loadGoogleMaps = async () => {
-      try {
-        const success = await initializeMaps();
-        setIsLoaded(success);
-        if (!success) {
-          setLoadError(new Error('Failed to initialize Google Maps'));
-        }
-      } catch (error) {
-        setLoadError(error as Error);
-      }
-    };
-
-    loadGoogleMaps();
-  }, []);
+  const value = React.useMemo(() => {
+    return { isLoaded, loadError };
+  }, [isLoaded, loadError]);
 
   return (
-    <GoogleMapsContext.Provider value={{ isLoaded, loadError }}>
+    <GoogleMapsContext.Provider value={value}>
       {children}
     </GoogleMapsContext.Provider>
   );
+};
+
+// Custom hook to use Google Maps context
+export const useGoogleMaps = () => {
+  const context = React.useContext(GoogleMapsContext);
+  if (context === undefined) {
+    throw new Error('useGoogleMaps must be used within a GoogleMapsProvider');
+  }
+  return context;
 }; 

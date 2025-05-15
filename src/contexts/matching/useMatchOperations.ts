@@ -5,6 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { MatchType, MatchStatus } from './types';
 import { useMatchTransform } from './useMatchTransform';
 import { PostgrestError } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/enhanced-client';
 
 // Debounce helper function
 const debounce = (fn: Function, ms = 300) => {
@@ -33,12 +34,22 @@ export const useMatchOperations = () => {
     id: userId,
     first_name: 'Unknown',
     last_name: 'User',
+    nickname: '',
     avatar_url: null,
     bio: null,
     student_type: null,
     major_id: null,
     nationality: null,
-    is_verified: false
+    is_verified: false,
+    university_id: null,
+    campus_id: null,
+    year_of_study: null,
+    cultural_insight: null,
+    location: null,
+    created_at: null,
+    updated_at: null,
+    interests: [],
+    languages: []
   });
 
   // Helper function to wrap async operations with proper error handling
@@ -95,7 +106,7 @@ export const useMatchOperations = () => {
 
         // 3. Fetch ALL profiles
         const { data: profilesData, error: profilesError } = await db.profiles()
-          .select('id, first_name, last_name, avatar_url, bio, student_type, major_id, nationality, is_verified')
+          .select('id, first_name, last_name, nickname, bio, nationality, year_of_study, university_id, campus_id, major_id, student_type, cultural_insight, location, avatar_url, is_verified, created_at, updated_at, interests, languages')
           .in('id', userIdsArray);
 
         if (profilesError) throw profilesError;
@@ -140,16 +151,26 @@ export const useMatchOperations = () => {
             user1_status: match.user1_status,
             user2_status: match.user2_status,
             otherUser: {
-              id: otherUserProfile.id,
-              first_name: otherUserProfile.first_name || 'Unknown',
-              last_name: otherUserProfile.last_name || 'User',
-              avatar_url: otherUserProfile.avatar_url,
-              university: null, // This column doesn't exist in the profiles table
-              student_type: otherUserProfile.student_type,
-              major: otherUserProfile.major_id, // Use major_id instead of major
-              bio: otherUserProfile.bio,
-              nationality: otherUserProfile.nationality,
-              is_verified: otherUserProfile.is_verified || false,
+              ...otherUserProfile,
+              id: otherUserId,
+              first_name: otherUserProfile.first_name,
+              last_name: otherUserProfile.last_name,
+              nickname: otherUserProfile.nickname,
+              avatar_url: otherUserProfile.avatar_url || '',
+              university_id: otherUserProfile.university_id,
+              campus_id: otherUserProfile.campus_id,
+              major_id: otherUserProfile.major_id,
+              bio: otherUserProfile.bio || '',
+              nationality: otherUserProfile.nationality || '',
+              year_of_study: otherUserProfile.year_of_study,
+              student_type: otherUserProfile.student_type || '',
+              cultural_insight: otherUserProfile.cultural_insight,
+              location: otherUserProfile.location,
+              is_verified: otherUserProfile.is_verified,
+              created_at: otherUserProfile.created_at,
+              updated_at: otherUserProfile.updated_at,
+              interests: otherUserProfile.interests || [],
+              languages: otherUserProfile.languages || [],
               common_interests: 0,
               common_languages: 0,
               match_score: 0
@@ -200,79 +221,113 @@ export const useMatchOperations = () => {
 
   // Wrapper function that calls the debounced version
   const fetchMatches = async (): Promise<void> => {
+    if (!user) return;
+    
     try {
       setLoading(true);
       setError(null);
       
-      // Fetch matches for the current user
-      const { data: matchesData, error: matchesError } = await db.matches()
+      console.log('Fetching matches for user:', user.id);
+      
+      // Fetch only accepted matches directly from the database
+      const { data: acceptedMatchesData, error: acceptedMatchesError } = await db.matches()
         .select('*')
-        .or(`user1_id.eq.${user?.id},user2_id.eq.${user?.id}`)
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .eq('status', 'accepted')  // Only get accepted matches
         .order('created_at', { ascending: false });
       
-      if (matchesError) throw matchesError;
+      if (acceptedMatchesError) {
+        console.error('Error fetching accepted matches:', acceptedMatchesError);
+        setError('Failed to fetch matches');
+        setLoading(false);
+        // Still fetch pending matches
+        fetchPendingMatches();
+        return;
+      }
       
-      // Get all user IDs from matches
+      if (!acceptedMatchesData || acceptedMatchesData.length === 0) {
+        // No matches found
+        setMatches([]);
+        setLoading(false);
+        // Still fetch pending matches
+        fetchPendingMatches();
+        return;
+      }
+      
+      // Get all user IDs involved in matches
       const userIds = new Set<string>();
-      matchesData?.forEach(match => {
+      acceptedMatchesData.forEach(match => {
         userIds.add(match.user1_id);
         userIds.add(match.user2_id);
       });
       
-      // Fetch profiles for all users
+      // Fetch all profiles for these users
       const { data: profilesData, error: profilesError } = await db.profiles()
-        .select('id, first_name, last_name, avatar_url, bio, student_type, major_id, nationality, is_verified')
+        .select('*')
         .in('id', Array.from(userIds));
       
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        setError('Failed to fetch profiles');
+        setLoading(false);
+        return;
+      }
       
-      // Create a map for easy profile lookup
-      const profileMap = new Map(profilesData?.map(profile => [profile.id, profile]) || []);
+      // Create profile lookup map
+      const profileMap = new Map();
+      profilesData?.forEach(profile => {
+        profileMap.set(profile.id, profile);
+      });
       
-      // Transform matches to include the other user's profile
-      const transformedMatches = matchesData?.map(match => {
-        const otherUserId = match.user1_id === user?.id ? match.user2_id : match.user1_id;
-        const otherUserProfile = profileMap.get(otherUserId) || createPlaceholderProfile(otherUserId);
+      // Transform the matches with profile data
+      const transformedMatches = acceptedMatchesData.map(match => {
+        const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+        const otherProfile = profileMap.get(otherUserId) || createPlaceholderProfile(otherUserId);
         
         return {
-          ...match,
+          id: match.id,
+          created_at: match.created_at,
+          updated_at: match.updated_at,
+          user1_id: match.user1_id,
+          user2_id: match.user2_id,
           status: match.status as MatchStatus,
+          user1_status: match.user1_status || 'accepted',
+          user2_status: match.user2_status || 'accepted',
           otherUser: {
             id: otherUserId,
-            first_name: otherUserProfile.first_name,
-            last_name: otherUserProfile.last_name,
-            avatar_url: otherUserProfile.avatar_url || '',
-            university: '',  // This field doesn't exist in our schema anymore
-            student_type: otherUserProfile.student_type || '',
-            major: '',  // We'll need to join with majors table to get this
-            bio: otherUserProfile.bio || '',
-            nationality: otherUserProfile.nationality || '',
-            is_verified: otherUserProfile.is_verified,
-            common_interests: 0,  // These will need to be calculated
-            common_languages: 0,  // These will need to be calculated
-            match_score: 0  // This will need to be calculated
+            first_name: otherProfile.first_name,
+            last_name: otherProfile.last_name,
+            nickname: otherProfile.nickname || '',
+            avatar_url: otherProfile.avatar_url || '',
+            university_id: otherProfile.university_id || null,
+            campus_id: otherProfile.campus_id || null,
+            major_id: otherProfile.major_id || null,
+            bio: otherProfile.bio || '',
+            nationality: otherProfile.nationality || '',
+            year_of_study: otherProfile.year_of_study || null,
+            student_type: otherProfile.student_type || '',
+            cultural_insight: otherProfile.cultural_insight || null,
+            location: otherProfile.location || null,
+            is_verified: otherProfile.is_verified || false,
+            created_at: otherProfile.created_at || null,
+            updated_at: otherProfile.updated_at || null,
+            interests: otherProfile.interests || [],
+            languages: otherProfile.languages || [],
+            common_interests: 0,
+            common_languages: 0,
+            match_score: 0.75 // Default score
           }
         } as MatchType;
-      }) || [];
-      
-      // Filter and categorize matches
-      const acceptedMatches = transformedMatches.filter(match => 
-        (match.user1_id === user?.id && match.user1_status === 'accepted') ||
-        (match.user2_id === user?.id && match.user2_status === 'accepted')
-      );
-      
-      const pendingMatches = transformedMatches.filter(match => 
-        (match.user1_id === user?.id && match.user1_status === 'pending') ||
-        (match.user2_id === user?.id && match.user2_status === 'pending')
-      );
+      });
       
       setMatches(transformedMatches);
-      setMyPendingMatches(pendingMatches.filter(m => m.user1_id === user?.id));
-      setTheirPendingMatches(pendingMatches.filter(m => m.user2_id === user?.id));
-      setPossibleMatches([]);
-    } catch (err) {
-      console.error('Error fetching matches:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch matches');
+      
+      // Also fetch pending matches
+      fetchPendingMatches();
+      
+    } catch (error) {
+      console.error('Error in fetchMatches:', error);
+      setError('Failed to load matches');
     } finally {
       setLoading(false);
     }
@@ -379,22 +434,42 @@ export const useMatchOperations = () => {
     if (!user) return;
 
     try {
-      // Check if match already exists
+      // Check if match already exists (any status)
       const { data: existingMatch } = await db.matches()
         .select('*')
         .or(`and(user1_id.eq.${user.id},user2_id.eq.${matchUserId}),and(user1_id.eq.${matchUserId},user2_id.eq.${user.id})`)
         .limit(1);
 
       if (existingMatch && existingMatch.length > 0) {
-        toast({
-          title: 'Match already exists',
-          description: 'You already have a match with this user',
-          variant: 'destructive',
-        });
-        return;
+        const match = existingMatch[0];
+        // If match is pending or accepted, do not allow duplicate
+        if (["pending", "accepted"].includes(match.status)) {
+          toast({
+            title: 'Match already exists',
+            description: 'You already have a match or pending request with this user',
+            variant: 'destructive',
+          });
+          return;
+        }
+        // If match is rejected or unmatched, update it to pending and reset statuses
+        if (["rejected", "unmatched"].includes(match.status)) {
+          const { error: updateError } = await db.matches().update({
+            status: 'pending',
+            user1_status: user.id === match.user1_id ? 'accepted' : 'pending',
+            user2_status: user.id === match.user2_id ? 'accepted' : 'pending',
+            updated_at: new Date().toISOString(),
+          }).eq('id', match.id);
+          if (updateError) throw updateError;
+          toast({
+            title: 'Match request sent',
+            description: 'You have re-sent a match request to this user',
+          });
+          await fetchMatches();
+          return;
+        }
       }
 
-      // Create new match with better error handling
+      // Create new match
       const { data: newMatch, error } = await db.matches().insert({
         user1_id: user.id,
         user2_id: matchUserId,
@@ -418,8 +493,6 @@ export const useMatchOperations = () => {
         title: 'Match created',
         description: 'You have successfully sent a match request',
       });
-      
-      // Refresh matches for both users
       await fetchMatches();
     } catch (error: any) {
       console.error('Error creating match:', error);
@@ -549,6 +622,84 @@ export const useMatchOperations = () => {
     }
   };
 
+  // Function to fetch match state like pending matches
+  const fetchPendingMatches = async () => {
+    if (!user || isFetching) return;
+    
+    try {
+      console.log('Fetching match state for user:', user.id);
+      
+      // Fetch pending matches
+      const { data: pendingMatchesData, error: pendingError } = await db.matches()
+        .select('*')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      
+      if (pendingError) throw pendingError;
+      
+      // Get user IDs from pending matches
+      const userIds = new Set<string>();
+      pendingMatchesData?.forEach(match => {
+        userIds.add(match.user1_id);
+        userIds.add(match.user2_id);
+      });
+      
+      // Fetch profiles for these users
+      const { data: profilesData, error: profilesError } = await db.profiles()
+        .select('id, first_name, last_name, nickname, bio, nationality, student_type, avatar_url, interests, languages')
+        .in('id', Array.from(userIds));
+      
+      if (profilesError) throw profilesError;
+      
+      // Create a map for easy profile lookup
+      const profileMap = new Map(profilesData?.map(profile => [profile.id, profile]) || []);
+      
+      // Transform pending matches to include otherUser
+      const transformedPendingMatches = (pendingMatchesData || []).map(match => {
+        const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+        const otherUserProfile = profileMap.get(otherUserId) || createPlaceholderProfile(otherUserId);
+        
+        return {
+          ...match,
+          status: match.status as MatchStatus,
+          otherUser: {
+            ...otherUserProfile,
+            id: otherUserId,
+            first_name: otherUserProfile.first_name,
+            last_name: otherUserProfile.last_name,
+            nickname: otherUserProfile.nickname || '',
+            avatar_url: otherUserProfile.avatar_url || '',
+            bio: otherUserProfile.bio || '',
+            nationality: otherUserProfile.nationality || '',
+            student_type: otherUserProfile.student_type || '',
+            interests: otherUserProfile.interests || [],
+            languages: otherUserProfile.languages || [],
+            match_score: 0.75
+          }
+        } as MatchType;
+      });
+      
+      // Filter my pending matches
+      const myPendingMatchesFiltered = transformedPendingMatches.filter(m => 
+        (m.user1_id === user.id && m.user1_status === 'accepted') ||
+        (m.user2_id === user.id && m.user2_status === 'accepted')
+      );
+      
+      // Filter their pending matches
+      const theirPendingMatchesFiltered = transformedPendingMatches.filter(m => 
+        (m.user1_id === user.id && m.user1_status === 'pending') ||
+        (m.user2_id === user.id && m.user2_status === 'pending')
+      );
+      
+      setMyPendingMatches(myPendingMatchesFiltered);
+      setTheirPendingMatches(theirPendingMatchesFiltered);
+      setPossibleMatches([]);
+    } catch (err) {
+      console.error('Error fetching match state:', err);
+    }
+  };
+
   return { 
     matches, 
     possibleMatches, 
@@ -561,6 +712,6 @@ export const useMatchOperations = () => {
     createMatch, 
     acceptMatch, 
     rejectMatch, 
-    updateMatchStatus 
+    updateMatchStatus
   };
 };

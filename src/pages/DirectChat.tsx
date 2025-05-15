@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useConversation } from '@/contexts/ConversationContext';
@@ -8,7 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoaderIcon, Send, ArrowLeft, Info, Calendar, Video, Phone } from 'lucide-react';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 import ScheduleMeetupButton from '@/components/meetups/ScheduleMeetupButton';
+import ChatIcebreaker from '@/components/icebreaker/ChatIcebreaker';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Fix type issues with CSS properties
 const chatContainerStyle: React.CSSProperties = {
@@ -41,6 +43,7 @@ const DirectChat: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getConversation, sendMessage, loadMessages, loading } = useConversation();
+  const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -172,6 +175,14 @@ const DirectChat: React.FC = () => {
         </CardHeader>
         
         <CardContent className="p-0">
+          {conversation && messages.length === 0 && (
+            <ChatIcebreaker 
+              userA={user}
+              userB={conversation.other_user}
+              matchId={id}
+            />
+          )}
+          
           <div style={chatContainerStyle} className="bg-gradient-to-b from-gray-50 to-white shadow-inner">
             {messages.length === 0 ? (
               <div style={emptyStateStyle}>

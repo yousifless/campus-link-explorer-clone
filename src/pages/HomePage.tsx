@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -96,9 +95,9 @@ const HomePage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.6 }}
               >
-                <Link to="/feed">
+                <Link to="/dashboard">
                   <Button size="lg" className="w-full sm:w-auto px-8 py-6 text-lg font-medium bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
-                    Discover Students <ArrowRight className="ml-2" />
+                    Go to Dashboard <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
               </motion.div>
@@ -307,9 +306,9 @@ const HomePage: React.FC = () => {
                   </Button>
                 </Link>
               ) : (
-                <Link to="/feed" className="inline-block mt-8">
+                <Link to="/dashboard" className="inline-block mt-8">
                   <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-3 text-lg rounded-full transition-all hover:shadow-lg hover:translate-y-[-2px]">
-                    Find Matches <ArrowRight className="ml-2" />
+                    Get Started <ArrowRight className="ml-2" />
                   </Button>
                 </Link>
               )}
@@ -420,42 +419,15 @@ const HomePage: React.FC = () => {
                 </Button>
               </Link>
             ) : (
-              <Link to="/feed">
+              <Link to="/dashboard">
                 <Button size="lg" variant="secondary" className="px-8 py-6 text-lg font-medium bg-white text-indigo-700 hover:bg-indigo-50 hover:scale-105 transition-all duration-300">
-                  Find New Connections <ArrowRight className="ml-2" />
+                  Go to Dashboard <ArrowRight className="ml-2" />
                 </Button>
               </Link>
             )}
           </motion.div>
         </div>
       </section>
-
-      {/* Add animation keyframes to tailwind.config.ts */}
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 };

@@ -1,17 +1,24 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription 
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { 
   User, 
   Settings, 
   Camera, 
-  Upload, 
+  CheckCircle,
+  X,
   Loader2, 
   Shield, 
   Globe, 
@@ -19,49 +26,329 @@ import {
   Heart,
   Briefcase,
   BookOpen,
-  MapPin
+  MapPin,
+  Edit3,
+  Save,
+  Plus,
+  School,
+  GraduationCap,
+  Building,
+  Calendar
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { makeBucketPublic } from '@/utils/storage';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AvailabilityCalendar } from '@/components/profile/AvailabilityCalendar';
+import { InterestsModal } from '@/components/profile/InterestsModal';
+import { LanguagesModal } from '@/components/profile/LanguagesModal';
+import { MeetupPreferences } from '@/components/profile/MeetupPreferences';
+import { useAuth } from '@/contexts/AuthContext';
+import UserBadges from '@/components/profile/UserBadges';
 
-interface ProfileAvatarProps {
-  userId: string;
-  onAvatarUpdated: (url: string) => void;
-}
+// Animation variants
+const sectionVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    transition: { duration: 0.5 }
+  }
+};
 
-const ProfileAvatar: React.FC<ProfileAvatarProps> = ({ userId, onAvatarUpdated }) => {
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+const cardVariants = {
+  initial: { scale: 0.98, opacity: 0 },
+  animate: { 
+    scale: 1, 
+    opacity: 1,
+    transition: { duration: 0.4 }
+  },
+  exit: { 
+    scale: 0.98, 
+    opacity: 0,
+    transition: { duration: 0.3 }
+  },
+  hover: {
+    scale: 1.02,
+    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    transition: { duration: 0.2 }
+  }
+};
+
+const EditableField = ({ 
+  label, 
+  value, 
+  onSave, 
+  type = 'text',
+  placeholder = 'Enter value...',
+  options = [],
+  fieldKey,
+  isLoading = false,
+  icon: Icon = Edit3 
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [fieldValue, setFieldValue] = useState(value);
+  
+  useEffect(() => {
+    setFieldValue(value);
+  }, [value]);
+  
+  const handleSave = async () => {
+    await onSave(fieldKey, fieldValue);
+    setIsEditing(false);
+  };
+  
+  const handleCancel = () => {
+    setFieldValue(value);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="relative group">
+      {isEditing ? (
+    <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          className="mb-4"
+        >
+          <div className="flex items-center mb-1">
+            <label className="text-sm font-medium text-gray-700">{label}</label>
+          </div>
+          
+          {type === 'textarea' ? (
+            <Textarea
+              value={fieldValue || ''}
+              onChange={(e) => setFieldValue(e.target.value)}
+              placeholder={placeholder}
+              className="mb-2"
+              rows={4}
+            />
+          ) : type === 'select' ? (
+            <Select 
+              value={fieldValue || ''} 
+              onValueChange={setFieldValue}
+            >
+              <SelectTrigger className="mb-2">
+                <SelectValue placeholder={placeholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              type={type}
+              value={fieldValue || ''}
+              onChange={(e) => setFieldValue(e.target.value)}
+              placeholder={placeholder}
+              className="mb-2"
+            />
+          )}
+
+          <div className="flex space-x-2">
+            <Button 
+              onClick={handleSave} 
+              size="sm" 
+              disabled={isLoading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Save
+            </Button>
+            <Button 
+              onClick={handleCancel} 
+              size="sm" 
+              variant="outline"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+          </div>
+        </motion.div>
+      ) : (
+        <div className="py-2">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-500">{label}</div>
+            <Button 
+              onClick={() => setIsEditing(true)} 
+              size="sm" 
+              variant="ghost" 
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Icon className="h-4 w-4" />
+            </Button>
+          </div>
+          {value ? (
+            <div className="font-medium text-gray-800 mt-1">{value}</div>
+          ) : (
+            <Button 
+              onClick={() => setIsEditing(true)} 
+              variant="ghost" 
+              size="sm" 
+              className="text-blue-600 pl-0 hover:bg-transparent hover:text-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add {label}
+            </Button>
+        )}
+      </div>
+      )}
+    </div>
+  );
+};
+
+export const ProfilePage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [profileData, setProfileData] = useState(null);
+  const [universities, setUniversities] = useState([]);
+  const [majors, setMajors] = useState([]);
+  const [languages, setLanguages] = useState([]);
+  const [interests, setInterests] = useState([]);
+  const [updatingField, setUpdatingField] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
-    async function downloadImage() {
+    async function loadUserData() {
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+        setError(null);
+        
+        // Get current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          console.error("Error getting user:", userError || "No user found");
+          setError(userError?.message || "No authenticated user found");
+          return;
+        }
+        
+        setUserId(user.id);
+
+        // Load universities
+        const { data: universitiesData } = await supabase.from('universities').select('*');
+        setUniversities(universitiesData || []);
+        
+        // Load majors
+        const { data: majorsData } = await supabase.from('majors').select('*');
+        setMajors(majorsData || []);
+        
+        // Load languages
+        const { data: languagesData } = await supabase.from('languages').select('*');
+        setLanguages(languagesData || []);
+        
+        // Load interests
+        const { data: interestsData } = await supabase.from('interests').select('*');
+        setInterests(interestsData || []);
+        
+        // Get user profile with related data
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('avatar_url')
-          .eq('id', userId)
+          .select(`
+            *,
+            university:university_id(id, name),
+            campus:campus_id(id, name),
+            major:major_id(id, name)
+          `)
+          .eq('id', user.id)
           .single();
-
-        if (error) {
-          throw error;
+        
+        if (profileError) {
+          console.error("Error getting profile:", profileError);
+          setError(`Error getting profile: ${profileError.message}`);
+          return;
         }
-
-        if (data?.avatar_url) {
-          setAvatarUrl(data.avatar_url);
-        }
-      } catch (error) {
-        console.error('Error downloading image: ', error);
+        
+        // Get user languages
+        const { data: userLanguages } = await supabase
+          .from('user_languages')
+          .select('language_id, language:languages(id, name), proficiency')
+          .eq('user_id', user.id);
+        
+        // Get user interests
+        const { data: userInterests } = await supabase
+          .from('user_interests')
+          .select('interest_id, interest:interests(id, name)')
+          .eq('user_id', user.id);
+        
+          setProfileData({
+          ...profile,
+          languages: userLanguages?.map(l => ({
+            id: l.language_id,
+            name: l.language?.name || 'Unknown',
+            proficiency: l.proficiency
+          })) || [],
+          interests: userInterests?.map(i => ({
+            id: i.interest_id,
+            name: i.interest?.name || 'Unknown'
+          })) || []
+        });
+      } catch (err) {
+        console.error("Error loading user data:", err);
+        setError(`Error: ${err.message}`);
+      } finally {
+        setLoading(false);
       }
     }
+    
+    loadUserData();
+  }, []);
 
-    downloadImage();
-  }, [userId]);
-
-  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpdateField = async (field, value) => {
+    if (!userId) return;
+    
     try {
-      setUploading(true);
+      setUpdatingField(field);
+      
+      // Update the field in the database
+      const { error } = await supabase
+        .from('profiles')
+        .update({ [field]: value })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setProfileData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully!",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `${error.message || 'Error updating profile'}`,
+      });
+      console.error('Error updating profile:', error);
+    } finally {
+      setUpdatingField(null);
+    }
+  };
+
+  const handleUploadAvatar = async (event) => {
+    try {
+      if (!userId) return;
+      
+      setUploadingAvatar(true);
 
       if (!event.target.files || event.target.files.length === 0) {
         throw new Error('You must select an image to upload.');
@@ -97,8 +384,12 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({ userId, onAvatarUpdated }
         throw updateError;
       }
 
-      setAvatarUrl(publicUrl);
-      onAvatarUpdated(publicUrl);
+      // Update local state
+      setProfileData(prev => ({
+        ...prev,
+        avatar_url: publicUrl
+      }));
+      
       toast({
         title: "Success",
         description: "Avatar updated successfully!",
@@ -107,196 +398,46 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({ userId, onAvatarUpdated }
       toast({
         variant: "destructive",
         title: "Error",
-        description: `${error instanceof Error ? error.message : 'Error uploading avatar'}`,
+        description: error.message || 'Error uploading avatar',
       });
-      console.error('Error uploading avatar: ', error);
+      console.error('Error uploading avatar:', error);
     } finally {
-      setUploading(false);
+      setUploadingAvatar(false);
     }
   };
 
-  return (
-    <motion.div 
-      className="flex flex-col items-center"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div className="relative group">
-        <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
-          <AvatarImage src={avatarUrl || undefined} alt="Profile" />
-          <AvatarFallback>
-            <User className="h-16 w-16 text-gray-400" />
-          </AvatarFallback>
-        </Avatar>
-        
-        <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-          <div className="flex flex-col items-center text-white">
-            <Camera className="h-6 w-6 mb-1" />
-            <span className="text-xs font-medium">Change</span>
-          </div>
-          <input
-            type="file"
-            id="avatar"
-            accept="image/*"
-            onChange={uploadAvatar}
-            disabled={uploading}
-            className="hidden"
-          />
-        </label>
-        
-        {uploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-full">
-            <Loader2 className="h-8 w-8 animate-spin text-white" />
-          </div>
-        )}
-      </div>
-      
-      <p className="mt-4 text-sm text-gray-500">
-        Click on the avatar to upload a new image
-      </p>
-    </motion.div>
-  );
-};
-
-export const ProfilePage: React.FC = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [userId, setUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [bucketPublic, setBucketPublic] = useState<boolean | null>(null);
-  const [makingPublic, setMakingPublic] = useState(false);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [languages, setLanguages] = useState<any[]>([]);
-  const [interests, setInterests] = useState<any[]>([]);
-
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Get current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        if (userError) {
-          console.error("Error getting user:", userError);
-          setError(`Error getting user: ${userError.message}`);
-          return;
-        }
-        
-        if (!user) {
-          console.error("No user found");
-          setError("No authenticated user found");
-          return;
-        }
-        
-        setUserId(user.id);
-
-        // Get user profile
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*, university:university_id(*), campus:campus_id(*)')
-          .eq('id', user.id)
-          .single();
-        
-        if (profileError) {
-          console.error("Error getting profile:", profileError);
-          setError(`Error getting profile: ${profileError.message}`);
-          return;
-        }
-
-        setProfileData(profileData);
-        
-        // Check if the avatar bucket is public
-        const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-        
-        if (bucketsError) {
-          console.error("Error listing buckets:", bucketsError);
-        } else {
-          const avatarBucket = buckets.find(bucket => bucket.name === 'avatars');
-          setBucketPublic(avatarBucket?.public || false);
-        }
-        
-        // Get languages and interests
-        const { data: languagesData } = await supabase.from('languages').select('*');
-        const { data: interestsData } = await supabase.from('interests').select('*');
-        
-        if (languagesData) setLanguages(languagesData);
-        if (interestsData) setInterests(interestsData);
-        
-        // Get user languages
-        const { data: userLanguages } = await supabase
-          .from('user_languages')
-          .select('language_id, proficiency')
-          .eq('user_id', user.id);
-        
-        // Get user interests
-        const { data: userInterests } = await supabase
-          .from('user_interests')
-          .select('interest_id')
-          .eq('user_id', user.id);
-        
-        // Update profile data with languages and interests
-        if (profileData) {
-          setProfileData({
-            ...profileData,
-            languagesDetails: userLanguages || [],
-            interestsDetails: userInterests?.map(i => i.interest_id) || []
-          });
-        }
-        
-      } catch (error) {
-        console.error("Error in loadUser:", error);
-        setError(`Error loading user: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    loadUser();
-  }, []);
-
-  const handleMakeBucketPublic = async () => {
-    try {
-      setMakingPublic(true);
-      await makeBucketPublic();
-      setBucketPublic(true);
-      toast({
-        title: "Success",
-        description: "Avatar bucket is now public. Your avatar will be visible to others.",
-      });
-    } catch (error) {
-      console.error("Error making bucket public:", error);
-      setError(`Error making bucket public: ${error instanceof Error ? error.message : String(error)}`);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to make avatar bucket public: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    } finally {
-      setMakingPublic(false);
-    }
+  const getUniversityName = (id) => {
+    const university = universities.find(u => u.id === id);
+    return university ? university.name : 'Unknown';
   };
 
-  const handleAvatarUpdated = (url: string) => {
-    console.log("Avatar updated with URL:", url);
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        avatar_url: url
-      });
-    }
+  const getMajorName = (id) => {
+    const major = majors.find(m => m.id === id);
+    return major ? major.name : 'Unknown';
+  };
+
+  const getLanguageName = (id) => {
+    const language = languages.find(l => l.id === id);
+    return language ? language.name : 'Unknown';
+  };
+
+  const getInterestName = (id) => {
+    const interest = interests.find(i => i.id === id);
+    return interest ? interest.name : 'Unknown';
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
+      <div className="flex items-center justify-center min-h-screen">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center"
+        >
           <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mx-auto mb-4" />
           <p className="text-lg font-medium text-gray-700">Loading your profile...</p>
-        </div>
+          <p className="text-sm text-gray-500 mt-2">Just a moment, we're gathering your information</p>
+        </motion.div>
       </div>
     );
   }
@@ -334,7 +475,6 @@ export const ProfilePage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
         >
           <Card>
             <CardHeader>
@@ -355,376 +495,531 @@ export const ProfilePage: React.FC = () => {
     );
   }
 
-  const getLanguageName = (languageId: string) => {
-    const language = languages.find(l => l.id === languageId);
-    return language ? language.name : 'Unknown';
-  };
-
-  const getInterestName = (interestId: string) => {
-    const interest = interests.find(i => i.id === interestId);
-    return interest ? interest.name : 'Unknown';
-  };
-
   return (
-    <div className="container mx-auto p-4 py-8">
+    <div className="container mx-auto px-4 py-8">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        initial="hidden"
+        animate="visible"
+        variants={sectionVariants}
         className="max-w-5xl mx-auto"
       >
-        <Tabs defaultValue="profile" className="w-full">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">My Profile</h1>
-            <TabsList className="bg-indigo-50">
-              <TabsTrigger value="profile" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
-                <User className="mr-2 h-4 w-4" /> Profile
-              </TabsTrigger>
-              <TabsTrigger value="avatar" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
-                <Camera className="mr-2 h-4 w-4" /> Avatar
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
-                <Settings className="mr-2 h-4 w-4" /> Settings
-              </TabsTrigger>
-            </TabsList>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
+          <p className="text-gray-600">Manage your personal profile and preferences</p>
           </div>
           
-          <TabsContent value="profile">
-            {profileData && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Profile Summary Card */}
+        {/* Hero section with cover image and avatar */}
                 <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                >
-                  <Card className="overflow-hidden">
-                    {/* Profile header with background */}
-                    <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-600 relative">
-                      <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-black/30 to-transparent"></div>
+          className="relative rounded-xl overflow-hidden mb-8 bg-white shadow-md"
+          variants={cardVariants}
+          initial="initial"
+          animate="animate"
+          whileHover="hover"
+        >
+          <div className="h-48 bg-gradient-to-r from-violet-500 to-fuchsia-500 relative">
+            <div className="absolute inset-0 bg-black/10"></div>
                     </div>
                     
-                    {/* Avatar and basic info */}
-                    <CardContent className="pt-0 relative">
-                      <div className="-mt-16 mb-4 flex justify-center">
-                        <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
-                          <AvatarImage src={profileData.avatar_url || undefined} alt="Profile" />
+          <div className="absolute top-32 left-8 sm:left-12">
+            <div className="relative group">
+              <Avatar className="h-32 w-32 border-4 border-white shadow-lg bg-white">
+                <AvatarImage src={profileData?.avatar_url || undefined} alt="Profile" />
                           <AvatarFallback className="bg-indigo-100 text-indigo-600 text-4xl">
-                            {profileData.first_name?.[0]}{profileData.last_name?.[0]}
+                  {profileData?.first_name?.[0]}{profileData?.last_name?.[0]}
                           </AvatarFallback>
                         </Avatar>
+              
+              <label className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                <div className="flex flex-col items-center text-white">
+                  <Camera className="h-6 w-6 mb-1" />
+                  <span className="text-xs font-medium">Change</span>
                       </div>
-                      
-                      <div className="text-center mb-6">
-                        <h2 className="text-2xl font-bold">{profileData.first_name} {profileData.last_name}</h2>
-                        {profileData.nickname && (
-                          <p className="text-gray-500">"{profileData.nickname}"</p>
-                        )}
-                        
-                        <div className="mt-2 flex justify-center">
-                          <Badge className={`${profileData.student_type === 'international' ? 'bg-pink-100 text-pink-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                            {profileData.student_type === 'international' ? 'International Student' : 'Local Student'}
-                          </Badge>
-                          
-                          {profileData.is_verified && (
-                            <Badge className="ml-2 bg-green-100 text-green-700">
-                              <Shield className="h-3 w-3 mr-1" /> Verified
-                            </Badge>
+                <input
+                  type="file"
+                  id="avatar"
+                  accept="image/*"
+                  onChange={handleUploadAvatar}
+                  disabled={uploadingAvatar}
+                  className="hidden"
+                />
+              </label>
+              
+              {uploadingAvatar && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 rounded-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                </div>
                           )}
                         </div>
                       </div>
                       
-                      {/* Quick stats */}
-                      <div className="grid grid-cols-3 gap-2 mb-6">
-                        <div className="bg-gray-50 p-3 rounded-lg text-center">
-                          <p className="text-2xl font-semibold text-indigo-600">{profileData.interestsDetails?.length || 0}</p>
-                          <p className="text-xs text-gray-500">Interests</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-lg text-center">
-                          <p className="text-2xl font-semibold text-indigo-600">{profileData.languagesDetails?.length || 0}</p>
-                          <p className="text-xs text-gray-500">Languages</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-lg text-center">
-                          <p className="text-2xl font-semibold text-indigo-600">{profileData.year_of_study || '-'}</p>
-                          <p className="text-xs text-gray-500">Year</p>
-                        </div>
+          <div className="pt-20 pb-6 px-8 sm:px-12">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <EditableField
+                  label="Name"
+                  value={`${profileData?.first_name || ''} ${profileData?.last_name || ''}`}
+                  onSave={(_, fullName) => {
+                    const [firstName, ...lastNameParts] = fullName.split(' ');
+                    const lastName = lastNameParts.join(' ');
+                    return Promise.all([
+                      handleUpdateField('first_name', firstName),
+                      handleUpdateField('last_name', lastName)
+                    ]);
+                  }}
+                  placeholder="Your full name"
+                  fieldKey="full_name"
+                  isLoading={updatingField === 'first_name' || updatingField === 'last_name'}
+                  icon={User}
+                />
+                
+                <EditableField
+                  label="Nickname"
+                  value={profileData?.nickname || ''}
+                  onSave={handleUpdateField}
+                  placeholder="Your nickname (optional)"
+                  fieldKey="nickname"
+                  isLoading={updatingField === 'nickname'}
+                />
                       </div>
                       
-                      {/* Action buttons */}
-                      <Button 
-                        className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
-                        onClick={() => navigate('/profile')}
-                      >
-                        <User className="mr-2 h-4 w-4" /> Edit Profile
-                      </Button>
+              <div>
+                <Badge className={`${profileData?.student_type === 'international' ? 'bg-pink-100 text-pink-700' : 'bg-indigo-100 text-indigo-700'} px-3 py-1.5 text-sm font-medium`}>
+                  {profileData?.student_type === 'international' ? 'International Student' : 'Local Student'}
+                </Badge>
+                        </div>
+                        </div>
+                        </div>
+        </motion.div>
+                      
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="md:col-span-1 space-y-6">
+            <motion.div
+              variants={cardVariants}
+              initial="initial"
+              animate="animate"
+              whileHover="hover"
+              className="col-span-1 md:col-span-2"
+            >
+              <Card className="overflow-hidden border-0 shadow-md">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-3">
+                  <CardTitle className="flex items-center text-xl text-indigo-700">
+                    <User className="mr-2 h-5 w-5" />
+                    About Me
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <EditableField
+                    label="Bio"
+                    value={profileData?.bio || ''}
+                    onSave={handleUpdateField}
+                    placeholder="Tell others about yourself..."
+                    fieldKey="bio"
+                    isLoading={updatingField === 'bio'}
+                    type="textarea"
+                  />
                     </CardContent>
                   </Card>
                 </motion.div>
                 
-                {/* Profile Details */}
+            {/* Education */}
                 <motion.div 
-                  className="md:col-span-2"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                >
-                  <Card className="h-full">
-                    <CardHeader>
-                      <CardTitle>Profile Details</CardTitle>
+                variants={cardVariants}
+                initial="initial"
+                animate="animate"
+                whileHover="hover"
+                    >
+                <Card className="h-full border-0 shadow-md">
+                  <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 pb-3">
+                    <CardTitle className="flex items-center text-xl text-amber-700">
+                      <School className="mr-2 h-5 w-5" />
+                      Education
+                    </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Bio section */}
-                      {profileData.bio && (
-                        <div>
-                          <h3 className="text-lg font-medium mb-2">About Me</h3>
-                          <p className="text-gray-700 bg-gray-50 p-4 rounded-md border border-gray-100">
-                            {profileData.bio}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Academic info */}
-                      <div>
-                        <h3 className="text-lg font-medium mb-3 flex items-center">
-                          <BookOpen className="mr-2 h-5 w-5 text-indigo-600" />
-                          Academic Information
-                        </h3>
+                  <CardContent className="p-6 space-y-4">
+                    <EditableField
+                      label="University"
+                      value={profileData?.university?.name || getUniversityName(profileData?.university_id)}
+                      onSave={handleUpdateField}
+                      fieldKey="university_id"
+                      isLoading={updatingField === 'university_id'}
+                      type="select"
+                      options={universities.map(u => ({ value: u.id, label: u.name }))}
+                      icon={Building}
+                    />
+                            
+                    <EditableField
+                      label="Major"
+                      value={profileData?.major?.name || getMajorName(profileData?.major_id)}
+                      onSave={handleUpdateField}
+                      fieldKey="major_id"
+                      isLoading={updatingField === 'major_id'}
+                      type="select"
+                      options={majors.map(m => ({ value: m.id, label: m.name }))}
+                      icon={BookOpen}
+                    />
+                              
+                    <EditableField
+                      label="Year of Study"
+                      value={profileData?.year_of_study?.toString() || ''}
+                      onSave={(field, value) => handleUpdateField(field, parseInt(value) || null)}
+                      fieldKey="year_of_study"
+                      isLoading={updatingField === 'year_of_study'}
+                      type="number"
+                      icon={GraduationCap}
+                    />
+                  </CardContent>
+                </Card>
+              </motion.div>
+                  
+          {/* Location and Contact */}
+                  <motion.div
+                    variants={cardVariants}
+                    initial="initial"
+                    animate="animate"
+                    whileHover="hover"
+                  >
+                    <Card className="h-full border-0 shadow-md">
+                      <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 pb-3">
+                        <CardTitle className="flex items-center text-xl text-green-700">
+                          <MapPin className="mr-2 h-5 w-5" />
+                          Location & Contact
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-4">
+                        <EditableField
+                          label="Location"
+                          value={profileData?.location || ''}
+                          onSave={handleUpdateField}
+                          placeholder="Your location"
+                          fieldKey="location"
+                          isLoading={updatingField === 'location'}
+                          icon={MapPin}
+                        />
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="bg-gray-50 p-4 rounded-md border border-gray-100">
-                            <p className="text-sm text-gray-500">University</p>
-                            <p className="font-medium">{profileData.university?.name || 'Not specified'}</p>
-                          </div>
-                          
-                          <div className="bg-gray-50 p-4 rounded-md border border-gray-100">
-                            <p className="text-sm text-gray-500">Campus</p>
-                            <p className="font-medium">{profileData.campus?.name || 'Not specified'}</p>
-                          </div>
-                          
-                          <div className="bg-gray-50 p-4 rounded-md border border-gray-100">
-                            <p className="text-sm text-gray-500">Major</p>
-                            <p className="font-medium">{profileData.major_id || 'Not specified'}</p>
-                          </div>
-                          
-                          <div className="bg-gray-50 p-4 rounded-md border border-gray-100">
-                            <p className="text-sm text-gray-500">Year of Study</p>
-                            <p className="font-medium">{profileData.year_of_study || 'Not specified'}</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Background */}
-                      <div>
-                        <h3 className="text-lg font-medium mb-3 flex items-center">
-                          <Globe className="mr-2 h-5 w-5 text-indigo-600" />
-                          Background
-                        </h3>
+                        <EditableField
+                          label="Email"
+                          value={profileData?.email || ''}
+                          onSave={handleUpdateField}
+                          placeholder="Your email address"
+                          fieldKey="email"
+                          isLoading={updatingField === 'email'}
+                          type="email"
+                        />
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="bg-gray-50 p-4 rounded-md border border-gray-100">
-                            <p className="text-sm text-gray-500">Nationality</p>
-                            <p className="font-medium">{profileData.nationality || 'Not specified'}</p>
-                          </div>
-                          
-                          {profileData.cultural_insight && (
-                            <div className="bg-gray-50 p-4 rounded-md border border-gray-100">
-                              <p className="text-sm text-gray-500">Cultural Insights</p>
-                              <p className="font-medium">{profileData.cultural_insight}</p>
-                            </div>
-                          )}
-                          
-                          {profileData.location && (
-                            <div className="bg-gray-50 p-4 rounded-md border border-gray-100 flex items-start">
-                              <MapPin className="h-4 w-4 text-gray-500 mt-0.5 mr-1 flex-shrink-0" />
-                              <p className="font-medium">{profileData.location}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        <EditableField
+                          label="Phone"
+                          value={profileData?.phone || ''}
+                          onSave={handleUpdateField}
+                          placeholder="Your phone number"
+                          fieldKey="phone"
+                          isLoading={updatingField === 'phone'}
+                        />
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                       
                       {/* Languages */}
-                      <div>
-                        <h3 className="text-lg font-medium mb-3 flex items-center">
-                          <LanguagesIcon className="mr-2 h-5 w-5 text-indigo-600" />
+                  <motion.div
+                    variants={cardVariants}
+                    initial="initial"
+                    animate="animate"
+                    whileHover="hover"
+                  >
+                    <Card className="h-full border-0 shadow-md">
+                      <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 pb-3">
+                        <CardTitle className="flex items-center text-xl text-blue-700">
+                          <LanguagesIcon className="mr-2 h-5 w-5" />
                           Languages
-                        </h3>
-                        
-                        <div className="flex flex-wrap gap-2">
-                          {profileData.languagesDetails && profileData.languagesDetails.length > 0 ? (
-                            profileData.languagesDetails.map((lang: any, idx: number) => (
-                              <Badge key={idx} variant="outline" className="bg-indigo-50 text-indigo-700 px-3 py-1.5 border-indigo-100">
-                                {getLanguageName(lang.language_id)}
-                                {lang.proficiency && (
-                                  <span className="ml-1 text-xs text-indigo-400">({lang.proficiency})</span>
-                                )}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        <div className="mb-4">
+                          <p className="text-sm text-gray-500 mb-3">Your languages</p>
+                          
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {profileData?.languages && profileData.languages.length > 0 ? (
+                              profileData.languages.map((lang, idx) => (
+                                <Badge key={idx} variant="outline" className="bg-blue-50 text-blue-700 px-3 py-1.5 border-blue-200">
+                                  {lang.name} {lang.proficiency && <span className="text-blue-400">({lang.proficiency})</span>}
                               </Badge>
                             ))
                           ) : (
-                            <p className="text-gray-500">No languages specified</p>
+                              <p className="text-gray-500 italic text-sm">No languages specified</p>
                           )}
                         </div>
                       </div>
+                        
+                        <LanguagesModal 
+                          userLanguages={profileData?.languages} 
+                          onSave={async (languages) => {
+                            if (!userId) return;
+                            try {
+                              // First delete existing user languages
+                              await supabase
+                                .from('user_languages')
+                                .delete()
+                                .eq('user_id', userId);
+                              
+                              // Then insert new ones
+                              if (languages.length > 0) {
+                                const languagesToInsert = languages.map(lang => ({
+                                  user_id: userId,
+                                  language_id: lang.id,
+                                  proficiency: lang.proficiency
+                                }));
+                                
+                                const { error } = await supabase
+                                  .from('user_languages')
+                                  .insert(languagesToInsert);
+                                
+                                if (error) throw error;
+                              }
+                              
+                              // Update local state
+                              setProfileData(prev => ({
+                                ...prev,
+                                languages: languages
+                              }));
+                              
+                              toast({
+                                title: "Success",
+                                description: "Languages updated successfully!",
+                              });
+                            } catch (error) {
+                              console.error('Error updating languages:', error);
+                              toast({
+                                variant: "destructive",
+                                title: "Error",
+                                description: "Failed to update languages",
+                              });
+                            }
+                          }}
+                        />
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                       
                       {/* Interests */}
-                      <div>
-                        <h3 className="text-lg font-medium mb-3 flex items-center">
-                          <Heart className="mr-2 h-5 w-5 text-pink-600" />
+                  <motion.div
+                    variants={cardVariants}
+                    initial="initial"
+                    animate="animate"
+                    whileHover="hover"
+                  >
+                    <Card className="h-full border-0 shadow-md">
+                      <CardHeader className="bg-gradient-to-r from-pink-50 to-rose-50 pb-3">
+                        <CardTitle className="flex items-center text-xl text-pink-700">
+                          <Heart className="mr-2 h-5 w-5" />
                           Interests
-                        </h3>
-                        
-                        <div className="flex flex-wrap gap-2">
-                          {profileData.interestsDetails && profileData.interestsDetails.length > 0 ? (
-                            profileData.interestsDetails.map((interestId: string, idx: number) => (
-                              <Badge key={idx} variant="outline" className="bg-pink-50 text-pink-700 px-3 py-1.5 border-pink-100">
-                                {getInterestName(interestId)}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        <div className="mb-4">
+                          <p className="text-sm text-gray-500 mb-3">Your interests</p>
+                          
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {profileData?.interests && profileData.interests.length > 0 ? (
+                              profileData.interests.map((interest, idx) => (
+                                <Badge key={idx} variant="outline" className="bg-pink-50 text-pink-700 px-3 py-1.5 border-pink-200">
+                                  {interest.name}
                               </Badge>
                             ))
                           ) : (
-                            <p className="text-gray-500">No interests specified</p>
+                              <p className="text-gray-500 italic text-sm">No interests specified</p>
                           )}
                         </div>
                       </div>
+                        
+                        <InterestsModal 
+                          userInterests={profileData?.interests} 
+                          onSave={async (interests) => {
+                            if (!userId) return;
+                            try {
+                              // First delete existing user interests
+                              await supabase
+                                .from('user_interests')
+                                .delete()
+                                .eq('user_id', userId);
+                              
+                              // Then insert new ones
+                              if (interests.length > 0) {
+                                const interestsToInsert = interests.map(interest => ({
+                                  user_id: userId,
+                                  interest_id: interest.id
+                                }));
+                                
+                                const { error } = await supabase
+                                  .from('user_interests')
+                                  .insert(interestsToInsert);
+                                
+                                if (error) throw error;
+                              }
+                              
+                              // Update local state
+                              setProfileData(prev => ({
+                                ...prev,
+                                interests: interests
+                              }));
+                              
+                              toast({
+                                title: "Success",
+                                description: "Interests updated successfully!",
+                              });
+                            } catch (error) {
+                              console.error('Error updating interests:', error);
+                              toast({
+                                variant: "destructive",
+                                title: "Error",
+                                description: "Failed to update interests",
+                              });
+                            }
+                          }}
+                        />
                     </CardContent>
                   </Card>
                 </motion.div>
-              </div>
-            )}
-          </TabsContent>
           
-          <TabsContent value="avatar">
-            <div className="grid gap-6 md:grid-cols-3">
-              {/* Avatar Upload */}
+          {/* Cultural Background */}
               <motion.div 
-                className="md:col-span-2"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-              >
-                <Card className="overflow-hidden">
-                  <CardHeader>
-                    <CardTitle>Profile Avatar</CardTitle>
+                variants={cardVariants}
+                initial="initial"
+                animate="animate"
+                whileHover="hover"
+                className="col-span-1 md:col-span-2"
+                  >
+                <Card className="overflow-hidden border-0 shadow-md">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 pb-3">
+                    <CardTitle className="flex items-center text-xl text-purple-700">
+                      <Globe className="mr-2 h-5 w-5" />
+                      Cultural Background
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    {userId && (
-                      <ProfileAvatar 
-                        userId={userId} 
-                        onAvatarUpdated={handleAvatarUpdated} 
+                  <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <EditableField
+                        label="Nationality"
+                        value={profileData?.nationality || ''}
+                        onSave={handleUpdateField}
+                        placeholder="Your nationality"
+                        fieldKey="nationality"
+                        isLoading={updatingField === 'nationality'}
+                        icon={Globe}
                       />
-                    )}
+                    </div>
                     
-                    <div className="mt-8 bg-indigo-50 p-4 rounded-md border border-indigo-100">
-                      <h3 className="font-medium text-indigo-800 mb-2">Tips for a great profile photo:</h3>
-                      <ul className="space-y-2 text-indigo-700">
-                        <li className="flex items-center">
-                          <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 text-sm">✓</div>
-                          Use a clear, well-lit photo of your face
-                        </li>
-                        <li className="flex items-center">
-                          <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 text-sm">✓</div>
-                          Choose a recent photo that looks like you today
-                        </li>
-                        <li className="flex items-center">
-                          <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 text-sm">✓</div>
-                          Your face should take up about 60% of the frame
-                        </li>
-                      </ul>
+                    <div>
+                      <EditableField
+                        label="Cultural Insights"
+                        value={profileData?.cultural_insight || ''}
+                        onSave={handleUpdateField}
+                        placeholder="Share insights about your culture..."
+                        fieldKey="cultural_insight"
+                        isLoading={updatingField === 'cultural_insight'}
+                        type="textarea"
+                      />
                     </div>
                   </CardContent>
                 </Card>
               </motion.div>
               
-              {/* Bucket Visibility */}
+          {/* Availability */}
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
+                variants={cardVariants}
+                initial="initial"
+                animate="animate"
+                whileHover="hover"
+                className="col-span-1 md:col-span-2"
               >
-                {bucketPublic === false && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Storage Visibility</CardTitle>
+                <Card className="overflow-hidden border-0 shadow-md">
+                  <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 pb-3">
+                    <CardTitle className="flex items-center text-xl text-indigo-700">
+                      <Calendar className="mr-2 h-5 w-5" />
+                      Availability & Preferences
+                    </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="bg-yellow-50 p-4 rounded-md border border-yellow-100 mb-4">
-                        <p className="text-yellow-800 mb-2">
-                          <span className="font-medium">Note:</span> Your avatar storage is currently private. Other users won't be able to see your avatar.
-                        </p>
-                        <p className="text-yellow-700 text-sm">
-                          To make your avatar visible to others, you need to make the storage bucket public.
-                        </p>
+                  <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-base font-medium mb-3">When are you available?</h3>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Set your weekly availability to help others find times to connect with you
+                      </p>
+                      
+                      <AvailabilityCalendar 
+                        initialAvailability={profileData?.availability_json || {}}
+                        onSave={async (availability) => {
+                          if (!userId) return;
+                          try {
+                            // First delete existing availability
+                            await supabase
+                              .from('user_availability')
+                              .delete()
+                              .eq('user_id', userId);
+                            
+                            // Insert new availability entries
+                            const availabilityEntries = Object.entries(availability).flatMap(
+                              ([day, timeRanges]) => 
+                                timeRanges.map(range => ({
+                                  user_id: userId,
+                                  day_of_week: day,
+                                  start_time: range.start_time,
+                                  end_time: range.end_time
+                                }))
+                            );
+                            
+                            if (availabilityEntries.length > 0) {
+                              const { error } = await supabase
+                                .from('user_availability')
+                                .insert(availabilityEntries);
+                                
+                              if (error) throw error;
+                            }
+                            
+                            // Also save a JSON representation to the profile for easier access
+                            await supabase
+                              .from('profiles')
+                              .update({ 
+                                availability_json: availability,
+                                updated_at: new Date().toISOString()
+                              })
+                              .eq('id', userId);
+                            
+                            // Update local state
+                            setProfileData(prev => ({
+                              ...prev,
+                              availability_json: availability
+                            }));
+                            
+                            toast({
+                              title: "Success",
+                              description: "Your availability has been updated!",
+                            });
+                          } catch (error) {
+                            console.error('Error updating availability:', error);
+                            toast({
+                              variant: "destructive",
+                              title: "Error",
+                              description: "Failed to update availability",
+                            });
+                          }
+                        }}
+                      />
                       </div>
-                      <Button 
-                        onClick={handleMakeBucketPublic} 
-                        disabled={makingPublic}
-                        className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600"
-                      >
-                        {makingPublic ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Making Bucket Public...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Make Avatar Public
-                          </>
-                        )}
-                      </Button>
+                  
+                  <div>
+                    <h3 className="text-base font-medium mb-3">Matching Preferences</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Adjust how different factors are weighted when finding your matches
+                    </p>
+                    
+                    <MeetupPreferences />
+                      </div>
                     </CardContent>
                   </Card>
-                )}
-                
-                {bucketPublic === true && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Storage Visibility</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="bg-green-50 p-4 rounded-md border border-green-100">
-                        <p className="text-green-800 flex items-center">
-                          <Shield className="h-5 w-5 mr-2" />
-                          <span className="font-medium">Avatar is publicly visible</span>
-                        </p>
-                        <p className="text-green-700 text-sm mt-2">
-                          Your avatar is now visible to other users on the platform.
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </motion.div>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Settings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-500 mb-4">Profile settings will be added here in future updates.</p>
-                
-                <div className="bg-indigo-50 p-4 rounded-md border border-indigo-100">
-                  <h3 className="font-medium text-indigo-800 mb-2">Coming Soon</h3>
-                  <ul className="space-y-2 text-indigo-700">
-                    <li className="flex items-center">
-                      <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 text-sm">●</div>
-                      Privacy control settings
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 text-sm">●</div>
-                      Notification preferences
-                    </li>
-                    <li className="flex items-center">
-                      <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-2 text-sm">●</div>
-                      Account security options
-                    </li>
-                  </ul>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        
+        <UserBadges />
       </motion.div>
     </div>
   );

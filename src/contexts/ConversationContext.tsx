@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MessageType, ConversationType } from '@/types/database';
+import { MessageType, ConversationType, ProfileType } from '@/types/database';
 import { useAuth } from './AuthContext';
 import { fetchMessagesWithProfiles } from '@/utils/dataHelpers';
 import { requestManager } from '@/utils/requestManager';
@@ -131,6 +131,37 @@ const checkConversationsSchema = async () => {
   }
 };
 
+// Add these type definitions at the top of the file
+interface MessageWithSender extends Omit<MessageType, 'sender'> {
+  sender: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url: string;
+    nickname: string | null;
+    bio: string | null;
+    nationality: string | null;
+    year_of_study: number | null;
+    major_id: string | null;
+    student_type: string | null;
+    interests: string[];
+    languages: any[];
+    cultural_insight: string | null;
+    is_verified: boolean;
+    location: string | null;
+    created_at: string;
+    updated_at: string;
+    university: { id: string; name: string; } | null;
+    campus: { id: string; name: string; } | null;
+  } | null;
+}
+
+interface LoadingState {
+  conversations: boolean;
+  messages: boolean;
+  sending: boolean;
+}
+
 interface ConversationContextType {
   conversations: ConversationType[];
   messages: MessageType[];
@@ -145,6 +176,11 @@ interface ConversationContextType {
   checkForMessages: (matchId: string) => Promise<MessageType[]>;
   setCurrentConversation: (conversation: ConversationType | null) => void;
   getOrCreateConversation: (matchId: string) => Promise<ConversationType>;
+  getConversation: (conversationId: string) => Promise<ConversationType | null>;
+  loadMessages: (conversationId: string) => Promise<MessageType[]>;
+  loadingState: LoadingState;
+  optimisticMessages: MessageType[];
+  markMessagesAsRead: (conversationId: string) => Promise<void>;
 }
 
 const ConversationContext = createContext<ConversationContextType>({
@@ -155,12 +191,84 @@ const ConversationContext = createContext<ConversationContextType>({
   fetchConversations: async () => [],
   refreshConversations: async () => {},
   getConversationsWithProfiles: async () => [],
-  sendMessage: async () => ({ id: '', content: '', created_at: '', conversation_id: '', sender_id: '', is_read: false, sender: { first_name: '', last_name: '', avatar_url: '' } }),
+  sendMessage: async () => ({
+    id: '',
+    content: '',
+    created_at: '',
+    conversation_id: '',
+    sender_id: '',
+    is_read: false,
+    sender: {
+      id: '',
+      first_name: '',
+      last_name: '',
+      nickname: null,
+      bio: null,
+      nationality: null,
+      year_of_study: null,
+      university_id: null,
+      campus_id: null,
+      major_id: null,
+      student_type: null,
+      cultural_insight: null,
+      location: null,
+      avatar_url: '',
+      avatar_signed_url: null,
+      is_verified: false,
+      created_at: '',
+      updated_at: '',
+      interests: [],
+      languages: [],
+      university: null,
+      campus: null,
+      major: null,
+    },
+  }),
   fetchMessages: async () => [],
   fetchMessagesByMatchId: async () => [],
   checkForMessages: async () => [],
   setCurrentConversation: () => {},
-  getOrCreateConversation: async () => ({ id: '', match_id: '', created_at: '', updated_at: '', otherUser: { id: '', first_name: '', last_name: '', avatar_url: '' }, last_message: null })
+  getOrCreateConversation: async () => ({
+    id: '',
+    match_id: '',
+    created_at: '',
+    updated_at: '',
+    other_user: {
+      id: '',
+      first_name: '',
+      last_name: '',
+      nickname: null,
+      bio: null,
+      nationality: null,
+      year_of_study: null,
+      university_id: null,
+      campus_id: null,
+      major_id: null,
+      student_type: null,
+      cultural_insight: null,
+      location: null,
+      avatar_url: '',
+      avatar_signed_url: null,
+      is_verified: false,
+      created_at: '',
+      updated_at: '',
+      interests: [],
+      languages: [],
+      university: null,
+      campus: null,
+      major: null,
+    },
+    last_message: null
+  }),
+  getConversation: async () => null,
+  loadMessages: async () => [],
+  loadingState: {
+    conversations: false,
+    messages: false,
+    sending: false
+  },
+  optimisticMessages: [],
+  markMessagesAsRead: async () => {}
 });
 
 // Add a cache for conversations by match ID
@@ -178,6 +286,12 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const isOnline = useOnlineStatus();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingState, setLoadingState] = useState<LoadingState>({
+    conversations: false,
+    messages: false,
+    sending: false
+  });
+  const [optimisticMessages, setOptimisticMessages] = useState<MessageType[]>([]);
   
   // Add refs for tracking fetch state
   const isFetchingRef = useRef(false);
@@ -188,175 +302,127 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const fetchConversations = useCallback(async (force = false) => {
     if (!user) return [];
     
-    // Skip if already fetching unless forced
     if (isFetchingRef.current && !force) {
       console.log('Fetch already in progress, skipping...');
       return conversations;
     }
     
-    // Skip if in cooldown unless forced
     const now = Date.now();
-    if (!force && lastFetchTimeRef.current && now - lastFetchTimeRef.current < 10000) { // 10 second cooldown
+    if (!force && lastFetchTimeRef.current && now - lastFetchTimeRef.current < 10000) {
       console.log('Fetch cooldown active, skipping...');
       return conversations;
     }
     
     isFetchingRef.current = true;
     setIsLoadingConversations(true);
+    setError(null);
     
     try {
-      // Check cache first
-      const cacheKey = `conversations-${user.id}`;
-      const cachedData = simpleCache.get<ConversationType[]>(cacheKey);
-      
-      if (cachedData && !force) {
-        console.log('Using cached conversations data');
-        setConversations(cachedData);
-        return cachedData;
-      }
-      
-      console.log('Fetching conversations for user:', user.id);
-      
-      // First, get the matches where this user is involved
-      const { data: userMatches, error: matchError } = await supabase
-          .from('matches')
-        .select('id')
-          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+      // First, get all matches for the current user
+      const { data: matches, error: matchError } = await supabase
+        .from('matches')
+        .select('*')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .eq('status', 'accepted');
 
-      if (matchError) {
-        console.error('Error fetching user matches:', matchError);
-        throw matchError;
-      }
+      if (matchError) throw matchError;
       
-      if (!userMatches || userMatches.length === 0) {
-        console.log('No matches found for user');
+      if (!matches || matches.length === 0) {
         setConversations([]);
         return [];
       }
-      
-      const matchIds = userMatches.map(m => m.id);
-      console.log('Found matches for user:', matchIds);
-      
-      // Now get conversations for these matches
+
+      // Get all user IDs from matches
+      const userIds = new Set<string>();
+      matches.forEach(match => {
+        if (match.user1_id === user.id) {
+          userIds.add(match.user2_id);
+        } else {
+          userIds.add(match.user1_id);
+        }
+      });
+
+      // Fetch profiles for all users
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url, nickname')
+        .in('id', Array.from(userIds));
+
+      if (profileError) throw profileError;
+
+      // Create a map for quick profile lookup
+      const profileMap = new Map();
+      if (profiles) {
+        profiles.forEach(profile => {
+          profileMap.set(profile.id, profile);
+        });
+      }
+
+      // Get conversations for these matches
+      const matchIds = matches.map(m => m.id);
       const { data: conversationsData, error: convError } = await supabase
         .from('conversations')
-        .select('*, match:match_id(*)')
+        .select(`
+          *,
+          messages(
+            id,
+            content,
+            created_at,
+            sender_id,
+            is_read,
+            conversation_id
+          )
+        `)
         .in('match_id', matchIds)
         .order('updated_at', { ascending: false });
 
-      if (convError) {
-        console.error('Error fetching conversations:', convError);
-        throw convError;
-      }
-      
-      if (!conversationsData || conversationsData.length === 0) {
-        console.log('No conversations found for matches');
-        setConversations([]);
-        return [];
-      }
+      if (convError) throw convError;
 
-      // Filter out conversations with invalid matches
-      const validConversations = conversationsData.filter(conv => {
-        if (!conv.match) {
-          console.warn('Conversation has invalid match:', conv.id, conv.match_id);
-          return false;
-        }
-        return true;
-      });
-      
-      console.log('Valid conversations:', validConversations.length, 'of', conversationsData.length);
-
-      // Create a map to track the oldest conversation for each match
-      const matchConversationMap = new Map();
-      
-      // Process conversations to keep only the oldest one for each match
-      validConversations.forEach(conv => {
-        const matchId = conv.match_id;
-        if (!matchConversationMap.has(matchId) || 
-            new Date(conv.created_at) < new Date(matchConversationMap.get(matchId).created_at)) {
-          matchConversationMap.set(matchId, conv);
-        }
-      });
-      
-      // Convert map to array
-      const uniqueConversations = Array.from(matchConversationMap.values());
-      console.log('Unique conversations:', uniqueConversations.length, 'of', validConversations.length);
-
-      // Fetch last messages for each conversation with throttling
-      const lastMessages = [];
-      for (let i = 0; i < uniqueConversations.length; i++) {
-        const conversation = uniqueConversations[i];
-        
-        // Add a small delay between requests
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-        
-        try {
-          const { data: lastMessageData, error: lastMessageError } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('conversation_id', conversation.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          if (lastMessageError) {
-            console.error('Error fetching last message:', lastMessageError);
-            lastMessages.push(null);
-            continue;
-          }
-
-          lastMessages.push(lastMessageData && lastMessageData.length > 0 ? lastMessageData[0] : null);
-        } catch (error) {
-          console.error('Error in last message fetch:', error);
-          lastMessages.push(null);
-        }
-      }
-
-      // Map the conversations to include otherUser info
-      const conversationsWithUsers = uniqueConversations.map((conv: any, index: number) => {
-        const match = conv.match;
+      // Process conversations and combine with match data
+      const processedConversations = conversationsData?.map(conv => {
+        const match = matches.find(m => m.id === conv.match_id);
         if (!match) return null;
 
-        const isUser1 = match.user1_id === user?.id;
-        const otherUserId = isUser1 ? match.user2_id : match.user1_id;
-        const otherUserProfile = isUser1 
-          ? (match.profiles_user2 || {}) 
-          : (match.profiles_user1 || {});
+        const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+        const otherUserProfile = profileMap.get(otherUserId);
 
-        const lastMessage = lastMessages[index];
+        if (!otherUserProfile) return null;
+
+        const lastMessage = conv.messages?.[0];
 
         return {
           id: conv.id,
           match_id: conv.match_id,
           created_at: conv.created_at,
           updated_at: conv.updated_at,
-          otherUser: {
-            id: otherUserId,
+          other_user: {
+            id: otherUserProfile.id,
             first_name: otherUserProfile.first_name || '',
             last_name: otherUserProfile.last_name || '',
             avatar_url: otherUserProfile.avatar_url || '',
+            nickname: otherUserProfile.nickname || null
           },
-          last_message: lastMessage as MessageType | undefined
-        };
+          last_message: lastMessage ? {
+            id: lastMessage.id,
+            content: lastMessage.content,
+            created_at: lastMessage.created_at,
+            sender_id: lastMessage.sender_id,
+            is_read: lastMessage.is_read,
+            conversation_id: lastMessage.conversation_id
+          } : undefined
+        } as ConversationType;
       }).filter(Boolean) as ConversationType[];
 
-      // Cache the results for 30 seconds
-      simpleCache.set(cacheKey, conversationsWithUsers, 30000);
-
-      setConversations(conversationsWithUsers);
-      lastFetchTimeRef.current = Date.now();
-      return conversationsWithUsers;
+      setConversations(processedConversations);
+      return processedConversations;
     } catch (error: any) {
-      if (error.message === 'Request in cooldown') {
-        // This is expected, not a real error
-        return conversations;
-      }
-      console.error('Error fetching conversations:', error.message);
-      return conversations;
+      console.error('Error fetching conversations:', error);
+      setError(error.message);
+      return [];
     } finally {
       setIsLoadingConversations(false);
       isFetchingRef.current = false;
+      lastFetchTimeRef.current = Date.now();
     }
   }, [user, conversations]);
 
@@ -706,79 +772,276 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, []);
 
+  // Add subscription setup
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to new messages
+    const messageSubscription = supabase
+      .channel('messages')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages'
+      }, async (payload) => {
+        const newMessage = payload.new as MessageType;
+        
+        // Only update if the message is for the current conversation
+        if (currentConversation && newMessage.conversation_id === currentConversation.id) {
+          // Fetch the complete message with sender info
+          const { data: messageWithSender } = await supabase
+            .from('messages')
+            .select(`
+              *,
+              sender:profiles!messages_sender_id_fkey(
+                id,
+                first_name,
+                last_name,
+                avatar_url,
+                nickname,
+                bio,
+                nationality,
+                year_of_study,
+                major_id,
+                student_type,
+                interests,
+                languages,
+                cultural_insight,
+                is_verified,
+                location,
+                created_at,
+                updated_at,
+                university:universities!inner(
+                  id,
+                  name
+                ),
+                campus:campuses!inner(
+                  id,
+                  name
+                )
+              )
+            `)
+            .eq('id', newMessage.id)
+            .single();
+
+          if (messageWithSender) {
+            setMessages(prev => [...prev, messageWithSender as unknown as MessageType]);
+            // Remove from optimistic messages if it exists
+            setOptimisticMessages(prev => prev.filter(m => m.id !== newMessage.id));
+          }
+        }
+      })
+      .subscribe();
+
+    // Subscribe to message read status updates
+    const readStatusSubscription = supabase
+      .channel('message_read_status')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${user.id}`
+      }, (payload) => {
+        const updatedMessage = payload.new as MessageType;
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === updatedMessage.id 
+              ? { ...msg, is_read: updatedMessage.is_read }
+              : msg
+          )
+        );
+      })
+      .subscribe();
+
+    return () => {
+      messageSubscription.unsubscribe();
+      readStatusSubscription.unsubscribe();
+    };
+  }, [user, currentConversation]);
+
+  // Update sendMessage to include optimistic updates
   const sendMessage = async (content: string, conversationId: string): Promise<MessageType> => {
     if (!user || !isOnline) {
       throw new Error('Cannot send message: User is offline or not authenticated');
     }
 
-    setIsLoadingMessages(true);
+    setLoadingState(prev => ({ ...prev, sending: true }));
+
+    // Create optimistic message
+    const optimisticMessage: MessageType = {
+      id: `temp-${Date.now()}`,
+      content,
+      conversation_id: conversationId,
+      sender_id: user.id,
+      is_read: false,
+      created_at: new Date().toISOString(),
+      sender: {
+        id: user.id,
+        first_name: user.user_metadata.first_name,
+        last_name: user.user_metadata.last_name,
+        avatar_url: user.user_metadata.avatar_url,
+        // ... other required fields with default values
+      } as unknown as ProfileType
+    };
+
+    // Add to optimistic messages
+    setOptimisticMessages(prev => [...prev, optimisticMessage]);
+
     try {
-      // First get the conversation to find the recipient
-      const { data: conversation, error: convError } = await supabase
-        .from('conversations')
-        .select('*, matches!inner(*)')
-        .eq('id', conversationId)
-        .single();
-
-      if (convError) throw convError;
-      if (!conversation) throw new Error('Conversation not found');
-
-      // Determine the recipient ID from the match
-      const recipientId = conversation.matches.user1_id === user.id 
-        ? conversation.matches.user2_id 
-        : conversation.matches.user1_id;
-
-      // Get recipient's profile
-      const { data: recipientProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, avatar_url')
-        .eq('id', recipientId)
-        .single();
-
-      if (profileError) throw profileError;
-      if (!recipientProfile) throw new Error('Recipient profile not found');
-
-      // Send the message
       const { data: message, error } = await supabase
         .from('messages')
-        .insert([
-          {
-            content,
-        conversation_id: conversationId,
-        sender_id: user.id,
-        is_read: false,
-            created_at: new Date().toISOString()
-          }
-        ])
+        .insert([{
+          content,
+          conversation_id: conversationId,
+          sender_id: user.id,
+          is_read: false,
+          created_at: new Date().toISOString()
+        }])
         .select(`
           *,
-          sender:profiles (
+          sender:profiles!messages_sender_id_fkey(
+            id,
             first_name,
             last_name,
-            avatar_url
+            avatar_url,
+            nickname,
+            bio,
+            nationality,
+            year_of_study,
+            major_id,
+            student_type,
+            interests,
+            languages,
+            cultural_insight,
+            is_verified,
+            location,
+            created_at,
+            updated_at,
+            university:universities!inner(
+              id,
+              name
+            ),
+            campus:campuses!inner(
+              id,
+              name
+            )
           )
         `)
         .single();
 
-      if (error) {
-      console.error('Error sending message:', error);
-        throw error;
-      }
+      if (error) throw error;
+      if (!message) throw new Error('Failed to send message');
 
-      // Create notification for the recipient
-      await notifyNewMessage(
-        recipientId,
-        user.id,
-        `${user.user_metadata.first_name} ${user.user_metadata.last_name}`,
-        content,
-        user.user_metadata.avatar_url
+      // Remove optimistic message
+      setOptimisticMessages(prev => 
+        prev.filter(m => m.id !== optimisticMessage.id)
       );
 
       return message as unknown as MessageType;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Remove failed optimistic message
+      setOptimisticMessages(prev => 
+        prev.filter(m => m.id !== optimisticMessage.id)
+      );
+      throw error;
     } finally {
-      setIsLoadingMessages(false);
+      setLoadingState(prev => ({ ...prev, sending: false }));
     }
   };
+
+  // Add function to mark messages as read
+  const markMessagesAsRead = async (conversationId: string) => {
+    if (!user) return;
+
+    try {
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .neq('sender_id', user.id)
+        .eq('is_read', false);
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  };
+
+  // Update loadMessages to include loading state
+  const loadMessages = useCallback(async (conversationId: string): Promise<MessageType[]> => {
+    if (!user) return [];
+
+    setLoadingState(prev => ({ ...prev, messages: true }));
+
+    try {
+      const { data: messages, error: messagesError } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          sender:profiles!messages_sender_id_fkey(
+            id,
+            first_name,
+            last_name,
+            avatar_url,
+            nickname,
+            bio,
+            nationality,
+            year_of_study,
+            major_id,
+            student_type,
+            interests,
+            languages,
+            cultural_insight,
+            is_verified,
+            location,
+            created_at,
+            updated_at,
+            university:universities!inner(
+              id,
+              name
+            ),
+            campus:campuses!inner(
+              id,
+              name
+            )
+          )
+        `)
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (messagesError) {
+        console.error('Error loading messages:', messagesError);
+        return [];
+      }
+
+      if (!messages) return [];
+
+      // Mark messages as read
+      await markMessagesAsRead(conversationId);
+
+      const typedMessages = messages as unknown as MessageWithSender[];
+      
+      return [...typedMessages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        created_at: msg.created_at,
+        sender_id: msg.sender_id,
+        is_read: msg.is_read,
+        conversation_id: msg.conversation_id,
+        sender: msg.sender ? {
+          ...msg.sender,
+          university_id: msg.sender.university?.id || null,
+          campus_id: msg.sender.campus?.id || null,
+          university: msg.sender.university || null,
+          campus: msg.sender.campus || null
+        } as unknown as ProfileType : null
+      })), ...optimisticMessages.filter(m => m.conversation_id === conversationId)];
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      return [];
+    } finally {
+      setLoadingState(prev => ({ ...prev, messages: false }));
+    }
+  }, [user, optimisticMessages]);
 
   // Add a function to get conversations with profiles
   const getConversationsWithProfiles = useCallback(async () => {
@@ -850,7 +1113,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     
     setLoading(true);
     setError(null);
-    
+
     try {
       const updatedConversations = await fetchConversations(true);
       setConversations(updatedConversations);
@@ -861,6 +1124,98 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setLoading(false);
     }
   }, [user, fetchConversations]);
+
+  const getConversation = useCallback(async (conversationId: string): Promise<ConversationType | null> => {
+    if (!user) return null;
+    
+    try {
+      // First, get the conversation
+      const { data: conversations, error: convError } = await supabase
+        .from('conversations')
+        .select(`
+          *,
+          match:matches!inner(
+            id,
+            user1_id,
+            user2_id,
+            status
+          )
+        `)
+        .eq('id', conversationId);
+
+      if (convError) throw convError;
+      if (!conversations || conversations.length === 0) return null;
+
+      // Use the first conversation if multiple exist
+      const conversation = conversations[0];
+
+      // Get the other user's profile
+      const otherUserId = conversation.match.user1_id === user.id 
+        ? conversation.match.user2_id 
+        : conversation.match.user1_id;
+
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          avatar_url,
+          nickname,
+          bio,
+          nationality,
+          year_of_study,
+          major_id,
+          student_type,
+          interests,
+          languages,
+          cultural_insight,
+          is_verified,
+          location,
+          created_at,
+          updated_at,
+          university:universities!inner(
+            id,
+            name
+          ),
+          campus:campuses!inner(
+            id,
+            name
+          )
+        `)
+        .eq('id', otherUserId);
+
+      if (profileError) throw profileError;
+      if (!profiles || profiles.length === 0) throw new Error('Profile not found');
+
+      const otherUser = {
+        ...profiles[0],
+        university: profiles[0].university || null,
+        campus: profiles[0].campus || null
+      };
+
+      // Get the last message
+      const { data: lastMessage, error: msgError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversation.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      return {
+        id: conversation.id,
+        match_id: conversation.match_id,
+        created_at: conversation.created_at,
+        updated_at: conversation.updated_at,
+        other_user: otherUser as unknown as ProfileType,
+        last_message: lastMessage || null
+      };
+    } catch (error) {
+      console.error('Error getting conversation:', error);
+      return null;
+    }
+  }, [user]);
 
   const value: ConversationContextType = {
     conversations,
@@ -875,7 +1230,12 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fetchMessagesByMatchId,
     checkForMessages,
     setCurrentConversation,
-    getOrCreateConversation
+    getOrCreateConversation,
+    getConversation,
+    loadMessages,
+    loadingState,
+    optimisticMessages,
+    markMessagesAsRead
   };
 
   return (

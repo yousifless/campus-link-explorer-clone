@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MeetupStatus, MeetupUpdate, CoffeeMeetup } from '@/types/coffee-meetup';
@@ -8,6 +7,9 @@ interface MeetupProposal {
   receiver_id: string;
   date: string;
   location_name: string;
+  location_address: string;
+  location_lat?: number;
+  location_lng?: number;
   message?: string;
 }
 
@@ -28,6 +30,9 @@ export async function createMeetup(params: MeetupProposal) {
         receiver_id: params.receiver_id,
         date: params.date,
         location_name: params.location_name,
+        location_address: params.location_address,
+        location_lat: params.location_lat,
+        location_lng: params.location_lng,
         status: 'pending',
         additional_notes: params.message
       })
@@ -76,7 +81,7 @@ export async function getMeetupById(meetupId: string): Promise<CoffeeMeetup> {
       .single();
 
     if (error) throw error;
-    return data as CoffeeMeetup;
+    return data as unknown as CoffeeMeetup;
   } catch (error) {
     console.error('Error fetching meetup details:', error);
     toast.error('Failed to load meetup details');

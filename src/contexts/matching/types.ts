@@ -1,6 +1,6 @@
 import { ProfileType, SuggestedMatchType } from '@/types/database';
 
-export type MatchStatus = 'pending' | 'accepted' | 'rejected';
+export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'unmatched';
 
 export interface MatchType {
   id: string;
@@ -40,13 +40,22 @@ export interface MatchType {
     id: string;
     first_name: string | null;
     last_name: string | null;
+    nickname?: string | null;
     avatar_url: string | null;
-    university: string | null;
-    student_type: string | null;
-    major: string | null;
+    university_id?: string | null;
+    campus_id?: string | null;
+    major_id?: string | null;
     bio: string | null;
     nationality: string | null;
+    year_of_study?: number | null;
+    student_type: string | null;
+    cultural_insight?: string | null;
+    location?: string | null;
     is_verified: boolean;
+    created_at?: string;
+    updated_at?: string;
+    interests?: string[];
+    languages?: { id: string; proficiency: string }[];
     common_interests: number;
     common_languages: number;
     match_score: number;

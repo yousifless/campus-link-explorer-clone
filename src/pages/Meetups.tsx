@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase';
 import NewMeetupSheet from '@/components/meetups/NewMeetupSheet';
-import { CoffeeMeetupCalendar } from '@/components/meetups/CoffeeMeetupCalendar';
+import { AnimatedMeetupCalendar, MeetupDay } from '@/components/meetups/AnimatedMeetupCalendar';
 import MapLocationPicker from '@/components/meetups/MapLocationPicker';
 import ScheduleMeetupButton from '@/components/meetups/ScheduleMeetupButton';
 import { toast } from 'sonner';
@@ -20,6 +20,7 @@ import { CoffeeMeetup, MeetupStatus } from '@/types/coffee-meetup';
 import { Profile } from '@/types/auth';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useNavigate } from 'react-router-dom';
+import MeetupIcebreaker from '@/components/icebreaker/MeetupIcebreaker';
 
 type Meetup = CoffeeMeetup;
 
@@ -48,7 +49,7 @@ function isLanguageObj(lang: any): lang is { id: string } {
 
 const MeetupCard: React.FC<{
   meetup: Meetup;
-  cardType: 'pending' | 'received' | 'confirmed' | 'sipped' | 'completed' | 'declined';
+  cardType: 'pending' | 'received' | 'confirmed' | 'sipped' | 'declined';
   onAccept?: () => void;
   onReject?: () => void;
 }> = ({ meetup, cardType, onAccept, onReject }) => {
@@ -267,6 +268,15 @@ const MeetupCard: React.FC<{
             </div>
           )}
 
+          {/* Add icebreakers for confirmed future meetups */}
+          {(cardType === 'confirmed' && new Date(meetup.date) >= new Date()) && (
+            <MeetupIcebreaker 
+              meetup={meetup}
+              userA={user}
+              userB={otherUser}
+            />
+          )}
+
           {/* Action buttons with enhanced styling */}
           {meetup.status === 'confirmed' && (
             <div className="mt-4 flex gap-2">
@@ -333,12 +343,28 @@ const PopularLocations: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <MapLocationPicker onLocationSelect={() => {}} />
+          <MapLocationPicker onLocationSelected={() => {}} />
         </CardContent>
       </Card>
     </motion.div>
   );
 };
+
+// Helper: Map CoffeeMeetup to AnimatedMeetupCalendar's MeetupDay type
+function mapToMeetupDays(meetups: CoffeeMeetup[]): MeetupDay[] {
+  return meetups.map(m => ({
+    date: m.date,
+    // Treat 'confirmed' and 'sipped' as 'upcoming' if in the future, else 'past'
+    status: (['confirmed', 'sipped'].includes(m.status) && new Date(m.date) >= new Date()) ? 'upcoming' : 'past',
+    title: m.location_name || 'Coffee Meetup',
+    description: m.additional_notes || m.conversation_starter || '',
+  }));
+}
+
+// Utility to safely map a confirmed, past meetup to 'sipped' status
+function toSippedMeetup(meetup: CoffeeMeetup): CoffeeMeetup {
+  return { ...meetup, status: 'sipped' };
+}
 
 const Meetups: React.FC = () => {
   const [activeTab, setActiveTab] = useState('confirmed');
@@ -560,14 +586,20 @@ const Meetups: React.FC = () => {
     loadMatchedUsers();
   }, [user]);
 
-  // Split meetups into sections
+  // MeetupStatus lifecycle:
+  // - 'pending': Awaiting response
+  // - 'confirmed': Accepted and upcoming (date in the future)
+  // - 'sipped': Confirmed and date is in the past (i.e., completed)
+  // - 'declined', 'rescheduled', 'cancelled': Other states
+  // There is no 'completed' status; use 'sipped' for completed meetups.
+
   const pendingMeetups = meetups.filter(m => m.status === 'pending' && m.sender_id === user?.id);
   const receivedMeetups = meetups.filter(m => m.status === 'pending' && m.receiver_id === user?.id);
   const confirmedMeetups = meetups.filter(m => m.status === 'confirmed' && !isBefore(new Date(m.date), startOfToday()) && (m.sender_id === user?.id || m.receiver_id === user?.id));
-  const completedMeetups = meetups.filter(m => m.status === 'completed' as MeetupStatus && isBefore(new Date(m.date), startOfToday()) && (m.sender_id === user?.id || m.receiver_id === user?.id));
+  // Sipped meetups: confirmed meetups in the past, mapped to 'sipped' for display
   const sippedMeetups = meetups
     .filter(m => m.status === 'confirmed' && isBefore(new Date(m.date), startOfToday()) && (m.sender_id === user?.id || m.receiver_id === user?.id))
-    .map(m => ({ ...m, status: 'sipped' as MeetupStatus }));
+    .map(toSippedMeetup);
   const declinedMeetups = meetups.filter(m => m.status === 'declined' && (m.sender_id === user?.id || m.receiver_id === user?.id));
 
   // Filter confirmed meetups for calendar
@@ -575,6 +607,8 @@ const Meetups: React.FC = () => {
 
   // Update calendar meetups to include both confirmed and sipped
   const calendarMeetups = meetups.filter(m => (m.status === 'confirmed' || m.status === 'sipped'));
+  // Transform for AnimatedMeetupCalendar
+  const calendarMeetupDays: MeetupDay[] = mapToMeetupDays(calendarMeetups);
 
   if (loading) {
     return (
@@ -633,8 +667,12 @@ const Meetups: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <CoffeeMeetupCalendar
-                  meetups={calendarMeetups}
+                {/*
+                  Replaced CoffeeMeetupCalendar with AnimatedMeetupCalendar for improved UI/UX.
+                  The meetups are mapped to the required format via mapToMeetupDays.
+                */}
+                <AnimatedMeetupCalendar
+                  meetups={calendarMeetupDays}
                   onDateSelect={() => {}}
                 />
               </CardContent>

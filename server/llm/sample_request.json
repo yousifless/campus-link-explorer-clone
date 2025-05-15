@@ -1,0 +1,20 @@
+{
+  "userA": {
+    "name": "Test User A",
+    "campus": "Test Campus",
+    "interests": ["AI", "Music", "Programming"],
+    "languages": ["English", "Spanish"],
+    "goals": ["Learning", "Networking"],
+    "personality": "Friendly and outgoing"
+  },
+  "userB": {
+    "name": "Test User B",
+    "campus": "Test Campus",
+    "interests": ["AI", "Photography", "Sports"],
+    "languages": ["English", "French"],
+    "goals": ["Career growth", "Making friends"],
+    "personality": "Curious and analytical"
+  },
+  "meetingDate": "Tomorrow",
+  "location": "Campus Coffee Shop"
+} 

@@ -5,15 +5,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ArrowRight, Calendar, Coffee, MessageSquare, Bell, User } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ProfileCard } from '@/components/profile/ProfileCard';
 import { UniversityType, MajorType } from '@/types/database';
+import type { Conversation } from './MessagesPage';
+import GlobalMatchCard from '@/components/matches/GlobalMatchCard';
+import MatchCard from '@/components/matches/MatchCard';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [viewProfile, setViewProfile] = useState('student');
   const [suggestedMatches, setSuggestedMatches] = useState([]);
   const [upcomingMeetups, setUpcomingMeetups] = useState([]);
@@ -24,9 +28,12 @@ const Dashboard = () => {
   const [profiles, setProfiles] = useState([]);
   const [universities, setUniversities] = useState<UniversityType[]>([]);
   const [majors, setMajors] = useState<MajorType[]>([]);
+  const [languages, setLanguages] = useState<any[]>([]);
+  const [interests, setInterests] = useState<any[]>([]);
   const [connectionsCount, setConnectionsCount] = useState(0);
   const [meetupsCount, setMeetupsCount] = useState(0);
   const [allMeetups, setAllMeetups] = useState([]);
+  const [recentChats, setRecentChats] = useState<Conversation[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,17 +51,49 @@ const Dashboard = () => {
           .single();
         setProfile(profileData);
 
-        // Fetch all matches for the user (confirmed/active)
-        const { data: matchesData } = await supabase
-          .from('matches_with_profiles')
+        // Fetch languages and interests for MatchCard
+        const { data: languagesData } = await supabase.from('languages').select('id, name');
+        if (languagesData && Array.isArray(languagesData)) setLanguages(languagesData);
+        const { data: interestsData } = await supabase.from('interests').select('id, name');
+        if (interestsData && Array.isArray(interestsData)) setInterests(interestsData);
+
+        // Fetch latest 3 accepted matches (by updated_at desc)
+        const { data: matchesData, error: matchesError } = await supabase
+          .from('matches')
           .select('*')
           .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-          .order('match_score', { ascending: false });
-        setSuggestedMatches(matchesData || []);
-
-        // Count connections (confirmed matches)
-        const confirmedConnections = (matchesData || []).filter(m => m.user1_status === 'confirmed' && m.user2_status === 'confirmed');
-        setConnectionsCount(confirmedConnections.length);
+          .eq('status', 'accepted')
+          .order('updated_at', { ascending: false })
+          .limit(3);
+        if (matchesError) throw matchesError;
+        // Get all user IDs involved
+        const userIds = Array.from(new Set((matchesData || []).flatMap(m => [m.user1_id, m.user2_id])));
+        // Fetch all profiles
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', userIds);
+        if (profilesError) throw profilesError;
+        // Map profiles by id
+        const profileMap = {};
+        (profilesData || []).forEach(p => { profileMap[p.id] = p; });
+        // Compose match cards data
+        const latestMatches = (matchesData || []).map(match => {
+          const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+          const otherProfile = profileMap[otherUserId];
+          
+          // Add match_score if it doesn't exist (default: 75%)
+          return {
+            ...match,
+            otherUser: {
+              ...otherProfile,
+              // Use existing match score from profile or match object if available, otherwise default to 75
+              match_score: otherProfile?.match_score || 75
+            }
+          };
+        });
+        setSuggestedMatches(latestMatches);
+        setConnectionsCount((matchesData || []).length);
 
         // --- FETCH MEETUPS LIKE MEETUPS PAGE ---
         const { data: meetupsData, error: meetupsError } = await supabase
@@ -78,14 +117,56 @@ const Dashboard = () => {
         setUpcomingMeetups(upcoming);
         setMeetupsCount(upcoming.length);
 
-        // Fetch recent messages (last 3 conversations)
-        const { data: messagesData } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('receiver_id', user.id)
-          .order('created_at', { ascending: false })
+        // Fetch recent conversations (last 3, most recently updated)
+        const { data: convs, error: convsError } = await supabase
+          .from('conversations')
+          .select('id, match_id, created_at, updated_at')
+          .order('updated_at', { ascending: false })
           .limit(3);
-        setRecentMessages(messagesData || []);
+        if (convsError) throw convsError;
+        if (convs && convs.length > 0) {
+          // Fetch matches for these conversations
+          const matchIds = convs.map((c: any) => c.match_id);
+          const { data: matches, error: matchError } = await supabase
+            .from('matches')
+            .select('id, user1_id, user2_id')
+            .in('id', matchIds);
+          if (matchError) throw matchError;
+          // Collect all other user IDs
+          const otherUserIds = matches
+            .map((m: any) => (m.user1_id === user.id ? m.user2_id : m.user1_id));
+          // Fetch all needed profiles
+          const { data: profilesData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, avatar_url')
+            .in('id', otherUserIds);
+          if (profileError) throw profileError;
+          const profileMap = new Map();
+          (profilesData || []).forEach((p: any) => profileMap.set(p.id, p));
+          // Fetch last message for each conversation
+          const chatList: Conversation[] = await Promise.all(convs.map(async (c: any) => {
+            const match = matches.find((m: any) => m.id === c.match_id);
+            if (!match) return null;
+            const otherId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+            // Fetch last message for this conversation
+            const { data: lastMsgData } = await supabase
+              .from('messages')
+              .select('content, created_at')
+              .eq('conversation_id', c.id)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            const lastMsg = lastMsgData && lastMsgData[0];
+            return {
+              id: c.id,
+              other_user: profileMap.get(otherId) || { id: otherId, first_name: '', last_name: '', avatar_url: '' },
+              last_message: lastMsg ? lastMsg.content : '',
+              last_message_time: lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+            };
+          }));
+          setRecentChats(chatList.filter(Boolean));
+        } else {
+          setRecentChats([]);
+        }
 
         // Fetch notifications (last 3)
         const { data: notificationsData } = await supabase
@@ -96,11 +177,11 @@ const Dashboard = () => {
           .limit(3);
         setNotifications(notificationsData || []);
 
-        // Fetch universities and majors for mapping
-        const { data: universitiesData } = await supabase.from('universities').select('id, name');
-        setUniversities(universitiesData || []);
-        const { data: majorsData } = await supabase.from('majors').select('id, name');
-        setMajors(majorsData || []);
+        // Fetch universities and majors for mapping (skip if types do not match)
+        const { data: universitiesData } = await supabase.from('universities').select('*');
+        if (universitiesData && Array.isArray(universitiesData)) setUniversities(universitiesData);
+        const { data: majorsData } = await supabase.from('majors').select('*');
+        if (majorsData && Array.isArray(majorsData)) setMajors(majorsData);
       } catch (error) {
         toast.error('Failed to load dashboard data');
       } finally {
@@ -222,6 +303,20 @@ const Dashboard = () => {
     };
   }
 
+  // Add this new function to create a user match preview object
+  function createUserProfilePreview(profile: any) {
+    if (!profile) return null;
+    
+    return {
+      id: 'self-preview',
+      otherUser: {
+        ...profile,
+        id: profile.id,
+        match_score: 100, // Perfect match with yourself!
+      }
+    };
+  }
+
   if (loading) {
     return <div className="container mx-auto px-4 py-8">Loading dashboard...</div>;
   }
@@ -252,11 +347,14 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-          {/* Suggested Matches */}
+          {/* Conditional Content Based on Tab Selection */}
+          {viewProfile === 'student' ? (
+            <>
+              {/* Latest Matches - Show in Student view */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Suggested Matches</h2>
-              <Link to="/discover">
+              <h2 className="text-xl font-semibold">Latest Matches</h2>
+              <Link to="/matches">
                 <Button variant="ghost" className="text-brand-purple">
                   View All
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -264,24 +362,32 @@ const Dashboard = () => {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {suggestedMatches.map(match => (
-                <ProfileCard
-                  key={match.id}
-                  profile={mapMatchToProfileCard(match, universities, majors)}
-                  onConnect={() => handleConnect(match.id)}
-                  onMessage={() => handleMessage(match.id)}
-                />
-              ))}
+              {suggestedMatches.length === 0 ? (
+                <div className="text-center text-gray-500 py-4 col-span-3">No recent matches</div>
+              ) : (
+                suggestedMatches.map(match => (
+                      <GlobalMatchCard
+                    key={match.id}
+                        userId={match.otherUser.id}
+                        matchId={match.id}
+                        match_score={match.otherUser.match_score}
+                        isMatched={true}
+                        onAccept={() => Promise.resolve()}
+                        onReject={() => Promise.resolve()}
+                    onMessage={() => navigate(`/messages?conversationId=${match.id}`)}
+                  />
+                ))
+              )}
             </div>
             <div className="mt-6 text-center">
-              <Link to="/discover">
+              <Link to="/matches">
                 <Button className="bg-brand-purple hover:bg-brand-dark">
-                  Discover More Students
+                  See All Matches
                 </Button>
               </Link>
             </div>
           </div>
-          {/* Coffee Meetups */}
+              {/* Coffee Meetups - Show in Student view */}
           <Card className="mb-8">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -387,6 +493,41 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+            </>
+          ) : (
+            <>
+              {/* Profile Card - Show in Profile view */}
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle>How Others See Your Profile</CardTitle>
+                  <CardDescription>This is how your profile appears to other students</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-center">
+                    {profile && (
+                      <div className="max-w-sm">
+                        <GlobalMatchCard
+                          userId={profile.id}
+                          match_score={100}
+                          isMatched={true}
+                          onAccept={() => Promise.resolve()}
+                          onReject={() => Promise.resolve()}
+                          showActions={false}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-6 text-center">
+                    <Link to="/profile">
+                      <Button className="bg-brand-purple hover:bg-brand-dark">
+                        Edit Your Profile
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
         {/* Right Column */}
         <div className="col-span-1">
@@ -445,40 +586,35 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {recentMessages.map(message => {
-                  const senderProfile = profiles.find(p => p.id === message.sender_id);
-                  return (
-                    <div 
-                      key={message.id} 
-                      className={`flex items-center p-3 rounded-lg cursor-pointer ${
-                        message.unread ? 'bg-brand-purple/5' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex-shrink-0 mr-3 relative">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={senderProfile?.avatar_url} alt={senderProfile?.first_name} />
-                          <AvatarFallback>{senderProfile?.first_name?.[0]}{senderProfile?.last_name?.[0]}</AvatarFallback>
-                        </Avatar>
-                        {message.unread && (
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-brand-purple rounded-full border-2 border-white"></div>
-                        )}
-                      </div>
-                      <div className="flex-grow overflow-hidden">
-                        <div className="flex justify-between items-center">
-                          <p className={`font-medium ${message.unread ? 'text-brand-purple' : ''}`}>
-                            {senderProfile ? `${senderProfile.first_name} ${senderProfile.last_name}` : ''}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {message.time || ''}
+                {recentChats.length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">No recent chats</div>
+                ) : (
+                  recentChats.map(conv => (
+                    <Link to="/messages" key={conv.id} className="block">
+                      <div className="flex items-center p-3 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <div className="flex-shrink-0 mr-3">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={conv.other_user.avatar_url || '/default-avatar.png'} alt={conv.other_user.first_name} />
+                            <AvatarFallback>{conv.other_user.first_name?.[0]}{conv.other_user.last_name?.[0]}</AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <div className="flex-grow overflow-hidden">
+                          <div className="flex justify-between items-center">
+                            <p className="font-medium text-[#1E293B] truncate">
+                              {conv.other_user.first_name} {conv.other_user.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {conv.last_message_time}
+                            </p>
+                          </div>
+                          <p className="text-sm text-gray-500 truncate">
+                            {conv.last_message || 'No messages yet'}
                           </p>
                         </div>
-                        <p className="text-sm text-gray-500 truncate">
-                          {message.preview || ''}
-                        </p>
                       </div>
-                    </div>
-                  );
-                })}
+                    </Link>
+                  ))
+                )}
               </div>
               <div className="mt-4">
                 <Link to="/messages">

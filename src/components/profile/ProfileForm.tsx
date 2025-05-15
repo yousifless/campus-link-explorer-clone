@@ -405,7 +405,9 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ isEditing, setIsEditing }) =>
         location: data.location,
         university_id: data.university,
         campus_id: data.campus,
-        major_id: data.major
+        major_id: data.major,
+        interests: selectedInterests,
+        languages: selectedLanguages.map(l => ({ id: l.language_id, proficiency: l.proficiency })),
       };
 
       // Update the profile
