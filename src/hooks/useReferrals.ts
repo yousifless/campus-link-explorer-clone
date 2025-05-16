@@ -44,19 +44,19 @@ const useReferrals = () => {
           setReferralLink(`https://campuslink.app/join?ref=${userData.referral_code}`);
         }
 
-        // Fetch discount codes - use raw SQL query to workaround the table not being in the type definitions
+        // Fetch discount codes - use direct SQL query with rpc to avoid table type issues
         const { data: discountData, error: discountError } = await supabase
-          .from('discount_codes')
-          .select('code, discount_amount, expires_at, used')
-          .order('created_at', { ascending: false });
+          .rpc('get_user_discount_codes');
 
         if (!discountError && discountData) {
-          setDiscountCodes(discountData.map(code => ({
+          setDiscountCodes(discountData.map((code: any) => ({
             code: code.code,
             amount: code.discount_amount,
             expires_at: code.expires_at,
             used: code.used
           })));
+        } else if (discountError) {
+          console.error('Error fetching discount codes:', discountError);
         }
 
       } catch (err: any) {
