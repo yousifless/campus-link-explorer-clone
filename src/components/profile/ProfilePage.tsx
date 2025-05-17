@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -753,6 +752,7 @@ export const ProfilePage = () => {
                         
                         <LanguagesModal 
                           userLanguages={profileData?.languages} 
+                          onOpenChange={() => {}} // Add the missing prop with an empty function
                           onSave={async (languages) => {
                             if (!userId) return;
                             try {
