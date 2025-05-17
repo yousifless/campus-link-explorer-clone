@@ -1,63 +1,137 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Notification } from './matching/types';
 import { useAuth } from './AuthContext';
+import { NotificationType } from '@/types/database';
 
-interface NotificationContextType {
-  notifications: Notification[];
-  fetchNotifications: () => Promise<void>;
+type NotificationContextType = {
+  notifications: NotificationType[];
+  unreadCount: number;
   loading: boolean;
-}
+  fetchNotifications: () => Promise<void>;
+  markAsRead: (notificationId: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+};
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchNotifications = async () => {
-    if (!user) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-      
-    if (!error && data) {
-      // Transform to match the Notification type
-      const transformedNotifications: Notification[] = data.map(item => ({
-        id: item.id,
-        user_id: item.user_id,
-        type: item.type,
-        title: item.type, // Using type as title if not present
-        message: item.content, // Using content as message
-        content: item.content,
-        is_read: item.is_read,
-        read: item.is_read, // Adding read property for backward compatibility
-        related_id: item.related_id || '',
-        created_at: item.created_at
+    try {
+      setLoading(true);
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      if (!data) return;
+
+      // Convert to NotificationType[]
+      const typedNotifications: NotificationType[] = data.map(notification => ({
+        id: notification.id,
+        user_id: notification.user_id,
+        type: notification.type,
+        content: notification.content,
+        is_read: notification.is_read,
+        related_id: notification.related_id,
+        created_at: notification.created_at
       }));
-      setNotifications(transformedNotifications);
+
+      setNotifications(typedNotifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      setLoading(true);
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setNotifications(
+        notifications.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, is_read: true }
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      setLoading(true);
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+
+      // Update local state
+      setNotifications(
+        notifications.map((notification) => ({
+          ...notification,
+          is_read: true,
+        }))
+      );
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchNotifications();
+    if (user) {
+      fetchNotifications();
+    }
   }, [user]);
 
-  return (
-    <NotificationContext.Provider value={{ notifications, fetchNotifications, loading }}>
-      {children}
-    </NotificationContext.Provider>
-  );
+  const unreadCount = notifications.filter((notification) => !notification.is_read).length;
+
+  const value = {
+    notifications,
+    unreadCount,
+    loading,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+  };
+
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 };
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
-  if (!context) throw new Error('useNotifications must be used within a NotificationProvider');
+  if (context === undefined) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
   return context;
 };

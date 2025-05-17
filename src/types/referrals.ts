@@ -1,5 +1,5 @@
 export interface ReferralBadge {
-  id: string; // Changed from number to string to match the database
+  id: number;
   name: string;
   description: string;
   required_referrals: number;
@@ -57,4 +57,4 @@ export interface DiscountCode {
   amount: number;
   expires_at: string;
   used: boolean;
-}
+} 

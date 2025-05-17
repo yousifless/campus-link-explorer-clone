@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,7 +60,7 @@ const UserBadges: React.FC<UserBadgesProps> = ({
         if (error) throw error;
         
         // Transform data to match ReferralBadge type
-        const badgesData = userBadges.map(item => ({
+        const formattedBadges: ReferralBadge[] = userBadges.map(item => ({
           id: item.referral_badges.id,
           name: item.referral_badges.name,
           description: item.referral_badges.description,
@@ -70,8 +69,7 @@ const UserBadges: React.FC<UserBadgesProps> = ({
           earned_at: item.earned_at
         }));
         
-        // Use as unknown to bridge the type gap
-        setBadges(badgesData as unknown as ReferralBadge[]);
+        setBadges(formattedBadges);
       } catch (error) {
         console.error('Error fetching badges:', error);
       } finally {
@@ -164,7 +162,7 @@ const UserBadges: React.FC<UserBadgesProps> = ({
         <div className="grid grid-cols-2 gap-4">
           {badges.map((badge) => (
             <div 
-              key={String(badge.id)} 
+              key={badge.id} 
               className="flex flex-col items-center text-center p-2 rounded-lg transition-colors hover:bg-muted/50"
             >
               <div 
@@ -193,4 +191,4 @@ const UserBadges: React.FC<UserBadgesProps> = ({
   );
 };
 
-export default UserBadges;
+export default UserBadges; 

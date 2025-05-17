@@ -1,4 +1,3 @@
-
 import { MatchType } from './types';
 
 export const useMatchTransform = () => {

@@ -41,28 +41,3 @@ export interface MeetupAttendanceStatus {
   total: number;
   user_status?: 'yes' | 'no' | 'maybe' | 'pending' | null;
 } 
-
-export type MeetupStatus = 'pending' | 'confirmed' | 'declined' | 'rescheduled' | 'cancelled';
-
-export interface CoffeeMeetup {
-  id: string;
-  match_id: string;
-  sender_id: string;
-  receiver_id: string;
-  date: string;
-  location: string;
-  message?: string;
-  status: MeetupStatus;
-  created_at: string;
-  updated_at: string;
-  sender?: {
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-  };
-  receiver?: {
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-  };
-}

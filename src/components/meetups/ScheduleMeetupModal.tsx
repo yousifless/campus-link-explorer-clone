@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -168,10 +169,7 @@ const ScheduleMeetupModal: React.FC<ScheduleMeetupModalProps> = ({
               <h3 className="font-medium text-lg">Where would you like to meet?</h3>
               
               <div className="h-[300px] w-full rounded-md overflow-hidden border border-gray-200">
-                <MapLocationPicker 
-                  defaultLocation={location || undefined}
-                  onLocationChange={setLocation}
-                />
+                <MapLocationPicker onSelectLocation={setLocation} />
               </div>
               
               {location && (

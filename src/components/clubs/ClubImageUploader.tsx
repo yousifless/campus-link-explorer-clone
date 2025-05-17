@@ -1,325 +1,572 @@
-import { useState, useRef, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/utils/supabase';
+import { toast } from 'sonner';
+import { Club, ClubImage } from '@/types/clubs';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
 
-// Define proper types for club resources/images
-interface ClubResource {
-  id: string;
-  club_id: string;
-  title: string;
-  description?: string;
-  url: string;
-  type: string;
-  created_by: string;
-  created_at: string;
-}
+// UI Components
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Icons
+import { 
+  Image as ImageIcon, 
+  Upload, 
+  X, 
+  Pencil, 
+  Trash2, 
+  Info, 
+  FileImage
+} from 'lucide-react';
+
+// Advanced image cropping
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '@/utils/imageUtils';
 
 interface ClubImageUploaderProps {
-  clubId: string;
-  onImageUploaded?: (imageUrl: string) => void;
-  type?: 'logo' | 'banner' | 'resource';
-  existingImage?: string;
-  className?: string;
+  club: Club;
+  onUpdate: (updatedClub: Partial<Club>) => Promise<any>;
+  isAdmin?: boolean;
 }
 
-const ClubImageUploader = ({
-  clubId,
-  onImageUploaded,
-  type = 'resource',
-  existingImage,
-  className = ''
-}: ClubImageUploaderProps) => {
+type ImageType = 'banner' | 'logo' | 'gallery';
+type CropArea = { x: number; y: number; width: number; height: number };
+
+const ClubImageUploader: React.FC<ClubImageUploaderProps> = ({ 
+  club, 
+  onUpdate,
+  isAdmin = false 
+}) => {
   const { user } = useAuth();
-  const [uploading, setUploading] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(existingImage || null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imageResources, setImageResources] = useState<ClubResource[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-
+  const [activeTab, setActiveTab] = useState<string>('banner');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [galleryImages, setGalleryImages] = useState<ClubImage[]>([]);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState<boolean>(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [imageToDelete, setImageToDelete] = useState<ClubImage | null>(null);
+  
+  // Fetch gallery images on component mount
   useEffect(() => {
-    if (existingImage) {
-      setImageUrl(existingImage);
+    if (club.id) {
+      fetchGalleryImages();
     }
-  }, [existingImage]);
+  }, [club.id]);
 
-  useEffect(() => {
-    if (clubId && type === 'resource') {
-      fetchImageResources();
-    }
-  }, [clubId, type]);
-
-  const fetchImageResources = async () => {
+  const fetchGalleryImages = async () => {
     try {
-      // Use club_resources instead of club_images
+      setLoading(true);
       const { data, error } = await supabase
-        .from('club_resources')
+        .from('club_images')
         .select('*')
-        .eq('club_id', clubId)
-        .eq('type', 'image');
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        setImageResources(data as ClubResource[]);
-      }
-    } catch (error) {
-      console.error('Error fetching club image resources:', error);
+        .eq('club_id', club.id)
+        .eq('type', 'gallery');
+        
+      if (error) throw error;
+      
+      setGalleryImages(data as ClubImage[]);
+    } catch (err) {
+      console.error('Error fetching gallery images:', err);
+      toast.error('Failed to load gallery images');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const uploadImage = async (file: File) => {
-    if (!user) {
-      toast({
-        title: 'Authentication required',
-        description: 'You must be logged in to upload images',
-        variant: 'destructive',
-      });
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.includes('image/')) {
+      toast.error('Please upload an image file');
       return;
     }
 
-    if (!clubId) {
-      toast({
-        title: 'Error',
-        description: 'Club ID is required',
-        variant: 'destructive',
-      });
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
       return;
     }
 
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setSelectedImage(file);
+    setPreviewUrl(url);
+    setShowCropper(true);
+  };
+
+  const handleCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropCancel = () => {
+    setSelectedImage(null);
+    setPreviewUrl(null);
+    setShowCropper(false);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+  };
+
+  const handleCropConfirm = async () => {
+    if (!selectedImage || !croppedAreaPixels || !previewUrl) return;
+    
     try {
-      setUploading(true);
-
-      // Validate file type
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      const validTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      setLoading(true);
       
-      if (!fileExt || !validTypes.includes(fileExt)) {
-        toast({
-          title: 'Invalid file type',
-          description: 'Please upload an image file (jpg, jpeg, png, gif, webp)',
-          variant: 'destructive',
-        });
-        return;
+      // Crop the image
+      const croppedImageBlob = await getCroppedImg(
+        previewUrl,
+        croppedAreaPixels,
+        0, // No rotation
+        activeTab === 'logo' ? 1 : 16/9 // Aspect ratio: 1:1 for logo, 16:9 for banner/gallery
+      );
+      
+      if (!croppedImageBlob) {
+        throw new Error('Failed to crop image');
       }
+      
+      // Convert blob to file
+      const croppedImageFile = new File(
+        [croppedImageBlob], 
+        selectedImage.name, 
+        { type: selectedImage.type }
+      );
+      
+      // Upload the image
+      await uploadImage(croppedImageFile, activeTab as ImageType);
+      
+      // Reset states
+      setSelectedImage(null);
+      setPreviewUrl(null);
+      setShowCropper(false);
+      
+      toast.success(`Club ${activeTab} updated successfully`);
+    } catch (err) {
+      console.error('Error processing image:', err);
+      toast.error('Failed to process image');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Validate file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: 'File too large',
-          description: 'Image size should be less than 5MB',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // Create a unique filename
-      const timestamp = Date.now();
-      const fileName = `${clubId}/${type}-${timestamp}.${fileExt}`;
+  const uploadImage = async (file: File, type: ImageType) => {
+    if (!user || !club.id) return;
+    
+    try {
+      // Create a unique file path
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${club.id}/${type}/${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `club-images/${fileName}`;
-
-      // Upload to storage
+      
+      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('club-images')
         .upload(filePath, file);
-
+        
       if (uploadError) throw uploadError;
-
+      
       // Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('club-images')
         .getPublicUrl(filePath);
-
-      const imageUrl = publicUrlData.publicUrl;
-      setImageUrl(imageUrl);
-
-      // Update club with new image URL if it's a logo or banner
-      if (type === 'logo' || type === 'banner') {
-        const updateField = type === 'logo' ? 'logo_url' : 'banner_url';
-        const { error: updateError } = await supabase
-          .from('clubs')
-          .update({ [updateField]: imageUrl })
-          .eq('id', clubId);
-
-        if (updateError) throw updateError;
+        
+      if (!publicUrlData.publicUrl) {
+        throw new Error('Failed to get public URL');
+      }
+      
+      // For banner and logo, update the club record
+      if (type === 'banner' || type === 'logo') {
+        const updateData = type === 'banner' 
+          ? { banner_url: publicUrlData.publicUrl } 
+          : { logo_url: publicUrlData.publicUrl };
+          
+        await onUpdate(updateData);
       } 
-      // Store as a club resource if it's a resource type
-      else if (type === 'resource') {
-        const { error: resourceError } = await supabase
-          .from('club_resources')
+      // For gallery images, insert into club_images table
+      else if (type === 'gallery') {
+        const { error: dbError } = await supabase
+          .from('club_images')
           .insert({
-            club_id: clubId,
-            title: `Image ${timestamp}`, // Required field
-            url: imageUrl,
-            type: 'image',
+            club_id: club.id,
+            url: publicUrlData.publicUrl,
+            type: 'gallery',
             created_by: user.id
           });
-
-        if (resourceError) throw resourceError;
+          
+        if (dbError) throw dbError;
         
-        // Refresh the resources list
-        fetchImageResources();
+        // Refresh gallery images
+        fetchGalleryImages();
       }
-
-      if (onImageUploaded) {
-        onImageUploaded(imageUrl);
-      }
-
-      toast({
-        title: 'Upload successful',
-        description: 'Your image has been uploaded',
-      });
-    } catch (error: any) {
-      console.error('Error uploading image:', error);
-      toast({
-        title: 'Upload failed',
-        description: error.message || 'An error occurred during upload',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
+    } catch (err) {
+      console.error(`Error uploading ${type}:`, err);
+      toast.error(`Failed to upload ${type}`);
+      throw err;
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      uploadImage(e.target.files[0]);
-    }
+  const handleDeleteImage = async (image: ClubImage) => {
+    setImageToDelete(image);
+    setDeleteDialogOpen(true);
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      uploadImage(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleDeleteResource = async (resourceId: string) => {
+  const confirmDeleteImage = async () => {
+    if (!imageToDelete) return;
+    
     try {
-      // Use club_resources instead of club_images
-      const { error } = await supabase
-        .from('club_resources')
+      setLoading(true);
+      
+      // Extract the file path from the URL
+      const urlParts = imageToDelete.url.split('/');
+      const fileName = urlParts.slice(urlParts.indexOf('club-images') + 1).join('/');
+      
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('club-images')
+        .remove([fileName]);
+        
+      if (storageError) throw storageError;
+      
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('club_images')
         .delete()
-        .eq('id', resourceId);
-
-      if (error) throw error;
-
-      // Refresh the list
-      fetchImageResources();
-
-      toast({
-        title: 'Image deleted',
-        description: 'The image has been removed',
-      });
-    } catch (error: any) {
-      console.error('Error deleting image:', error);
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete the image',
-        variant: 'destructive',
-      });
+        .eq('id', imageToDelete.id);
+        
+      if (dbError) throw dbError;
+      
+      // Update state
+      setGalleryImages(prev => prev.filter(img => img.id !== imageToDelete.id));
+      toast.success('Image deleted successfully');
+    } catch (err) {
+      console.error('Error deleting image:', err);
+      toast.error('Failed to delete image');
+    } finally {
+      setDeleteDialogOpen(false);
+      setImageToDelete(null);
+      setLoading(false);
     }
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Club Images</CardTitle>
+          <CardDescription>
+            Only club administrators can manage club images
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
-    <div className={`mb-4 ${className}`}>
-      {/* Upload area */}
-      <div
-        className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-          isDragging ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-primary'
-        }`}
-        onClick={() => fileInputRef.current?.click()}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-      >
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/*"
-          className="hidden"
-        />
+    <Card className="overflow-hidden">
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <ImageIcon className="h-5 w-5 mr-2" />
+          Club Images
+        </CardTitle>
+        <CardDescription>
+          Upload and manage images for your club
+        </CardDescription>
+      </CardHeader>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="px-6">
+          <TabsList className="grid grid-cols-3 w-full">
+            <TabsTrigger value="banner">Banner</TabsTrigger>
+            <TabsTrigger value="logo">Logo</TabsTrigger>
+            <TabsTrigger value="gallery">Gallery</TabsTrigger>
+          </TabsList>
+        </div>
         
-        {uploading ? (
-          <div className="flex flex-col items-center justify-center py-4">
-            <Loader2 className="h-8 w-8 text-primary animate-spin mb-2" />
-            <p className="text-sm text-gray-500">Uploading...</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-4">
-            <Upload className="h-8 w-8 text-gray-400 mb-2" />
-            <p className="text-sm font-medium">Click or drag image to upload</p>
-            <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 5MB</p>
-          </div>
-        )}
-      </div>
-
-      {/* Preview for logo/banner types */}
-      {(type === 'logo' || type === 'banner') && imageUrl && (
-        <div className="mt-4 relative">
-          <div className="rounded-lg overflow-hidden border">
-            <img
-              src={imageUrl}
-              alt={`Club ${type}`}
-              className={`w-full ${type === 'logo' ? 'max-h-40 object-contain' : 'object-cover'}`}
+        <TabsContent value="banner" className="p-6 pt-2">
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              The banner image will be displayed at the top of your club page.
+              Recommended size: 1200×400 pixels.
+            </p>
+            
+            {club.banner_url ? (
+              <div className="relative">
+                <AspectRatio ratio={16/9} className="bg-gray-100 rounded-md overflow-hidden">
+                  <img 
+                    src={club.banner_url} 
+                    alt="Club banner" 
+                    className="w-full h-full object-cover"
+                  />
+                </AspectRatio>
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <Button 
+                    size="icon" 
+                    variant="secondary" 
+                    className="h-8 w-8 rounded-full bg-white/80 hover:bg-white"
+                    onClick={() => document.getElementById('banner-upload')?.click()}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-12 bg-gray-50">
+                <div className="text-center">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <h3 className="text-sm font-medium text-gray-900">No banner image</h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Upload a banner image for your club
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-4"
+                    onClick={() => document.getElementById('banner-upload')?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Banner
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            <Input 
+              id="banner-upload" 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleImageChange}
             />
           </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="absolute top-2 right-2 h-8 w-8 p-0 rounded-full"
-            onClick={() => {
-              setImageUrl(null);
-              if (onImageUploaded) onImageUploaded('');
-            }}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Gallery for resource type */}
-      {type === 'resource' && imageResources.length > 0 && (
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {imageResources.map((resource) => (
-            <div key={resource.id} className="relative group">
-              <div className="aspect-square rounded-lg overflow-hidden border">
-                <img
-                  src={resource.url}
-                  alt={resource.title}
-                  className="w-full h-full object-cover"
-                />
+        </TabsContent>
+        
+        <TabsContent value="logo" className="p-6 pt-2">
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              The logo will be used as the club's profile image.
+              Recommended size: 400×400 pixels (square).
+            </p>
+            
+            {club.logo_url ? (
+              <div className="flex justify-center">
+                <div className="relative w-40 h-40">
+                  <AspectRatio ratio={1} className="bg-gray-100 rounded-full overflow-hidden">
+                    <img 
+                      src={club.logo_url} 
+                      alt="Club logo" 
+                      className="w-full h-full object-cover"
+                    />
+                  </AspectRatio>
+                  <div className="absolute bottom-0 right-0">
+                    <Button 
+                      size="icon" 
+                      variant="secondary" 
+                      className="h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow-md"
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <Button
-                variant="destructive"
+            ) : (
+              <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-12 bg-gray-50">
+                <div className="text-center">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <h3 className="text-sm font-medium text-gray-900">No logo image</h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Upload a logo for your club
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-4"
+                    onClick={() => document.getElementById('logo-upload')?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Logo
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            <Input 
+              id="logo-upload" 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleImageChange}
+            />
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="gallery" className="p-6 pt-2">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Upload images to showcase your club's activities.
+              </p>
+              <Button 
+                variant="outline" 
                 size="sm"
-                className="absolute top-2 right-2 h-6 w-6 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDeleteResource(resource.id)}
+                onClick={() => document.getElementById('gallery-upload')?.click()}
               >
-                <X className="h-3 w-3" />
+                <Upload className="h-4 w-4 mr-2" />
+                Add Photos
               </Button>
+              <Input 
+                id="gallery-upload" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleImageChange}
+              />
             </div>
-          ))}
-        </div>
+            
+            {loading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <AspectRatio ratio={16/9} key={i}>
+                    <Skeleton className="h-full w-full rounded-md" />
+                  </AspectRatio>
+                ))}
+              </div>
+            ) : galleryImages.length > 0 ? (
+              <ScrollArea className="h-[400px] rounded-md">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-1">
+                  {galleryImages.map((image) => (
+                    <div key={image.id} className="relative group">
+                      <AspectRatio ratio={16/9} className="bg-gray-100 rounded-md overflow-hidden">
+                        <img 
+                          src={image.url} 
+                          alt="Gallery" 
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </AspectRatio>
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          size="icon" 
+                          variant="destructive" 
+                          className="h-8 w-8 rounded-full"
+                          onClick={() => handleDeleteImage(image)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-12 bg-gray-50">
+                <div className="text-center">
+                  <FileImage className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <h3 className="text-sm font-medium text-gray-900">No gallery images</h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Upload photos to showcase your club
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+      
+      {/* Image Cropper Dialog */}
+      {showCropper && previewUrl && (
+        <AlertDialog open={showCropper} onOpenChange={setShowCropper}>
+          <AlertDialogContent className="max-w-screen-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Crop Image</AlertDialogTitle>
+              <AlertDialogDescription>
+                Adjust the crop area for your {activeTab} image.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            
+            <div className="relative h-[400px] w-full my-4">
+              <Cropper
+                image={previewUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={activeTab === 'logo' ? 1 : 16/9}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={handleCropComplete}
+              />
+            </div>
+            
+            <div className="flex items-center mb-4">
+              <Label className="mr-4">Zoom:</Label>
+              <Input
+                type="range"
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+              />
+            </div>
+            
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCropCancel} disabled={loading}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleCropConfirm} 
+                disabled={loading}
+                className="bg-brand-purple hover:bg-brand-purple/90"
+              >
+                {loading ? 'Saving...' : 'Save Crop'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
-    </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Image</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this image? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteImage} 
+              disabled={loading}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              {loading ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
   );
 };
 
-export default ClubImageUploader;
+export default ClubImageUploader; 

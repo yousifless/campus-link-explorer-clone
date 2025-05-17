@@ -1,51 +1,85 @@
 
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Eye, Edit, CheckCircle, XCircle } from "lucide-react";
-import { CoffeeMeetup, MeetupStatus } from '@/types/meetings';
+import { CoffeeMeetup, MeetupStatus } from '@/types/coffee-meetup';
+import { updateMeetup } from '@/services/coffee-meetups';
+import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
 
 interface MeetupActionsProps {
   meetup: CoffeeMeetup;
-  onViewDetails: (meetup: CoffeeMeetup) => void;
-  onEdit: (meetup: CoffeeMeetup) => void;
-  onConfirm: (meetup: CoffeeMeetup) => void;
-  onCancel: (meetup: CoffeeMeetup) => void;
+  onUpdate: (updatedMeetup: CoffeeMeetup) => void;
+  onReschedule: () => void;
 }
 
-const MeetupActions: React.FC<MeetupActionsProps> = ({
+export const MeetupActions: React.FC<MeetupActionsProps> = ({
   meetup,
-  onViewDetails,
-  onEdit,
-  onConfirm,
-  onCancel
+  onUpdate,
+  onReschedule
 }) => {
+  const { toast } = useToast();
 
-  const handleViewDetails = (meetup: CoffeeMeetup) => {
-    onViewDetails({
-      ...meetup,
-      status: meetup.status as MeetupStatus
-    });
+  const handleAction = async (action: 'accept' | 'decline') => {
+    try {
+      const status: MeetupStatus = action === 'accept' ? 'confirmed' : 'declined';
+      
+      // Ensure the meetup status is properly typed
+      const typedMeetup: CoffeeMeetup = {
+        ...meetup,
+        status: meetup.status as MeetupStatus
+      };
+      
+      const updatedMeetup = await updateMeetup(typedMeetup.id, {
+        status: status
+      });
+
+      onUpdate(updatedMeetup);
+
+      toast({
+        title: "Success",
+        description: `Meetup ${action}ed successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to ${action} meetup`,
+        variant: "destructive",
+      });
+    }
   };
 
+  // Don't show actions if this isn't a pending meetup
+  if (meetup.status !== 'pending') {
+    return null;
+  }
+
   return (
-    <div className="flex space-x-2">
-      <Button variant="outline" size="sm" onClick={() => handleViewDetails(meetup)}>
-        <Eye className="h-4 w-4 mr-2" />
-        View Details
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex justify-end space-x-2 mt-4"
+    >
+      <Button
+        variant="outline"
+        onClick={() => handleAction('decline')}
+        className="text-red-600 border-red-600 hover:bg-red-50"
+      >
+        Decline
       </Button>
-      <Button variant="secondary" size="sm" onClick={() => onEdit(meetup)}>
-        <Edit className="h-4 w-4 mr-2" />
-        Edit
+      <Button
+        variant="outline"
+        onClick={onReschedule}
+        className="text-blue-600 border-blue-600 hover:bg-blue-50"
+      >
+        Reschedule
       </Button>
-      <Button variant="ghost" size="sm" onClick={() => onConfirm(meetup)}>
-        <CheckCircle className="h-4 w-4 mr-2" />
-        Confirm
+      <Button
+        onClick={() => handleAction('accept')}
+        className="bg-green-600 hover:bg-green-700"
+      >
+        Accept
       </Button>
-      <Button variant="destructive" size="sm" onClick={() => onCancel(meetup)}>
-        <XCircle className="h-4 w-4 mr-2" />
-        Cancel
-      </Button>
-    </div>
+    </motion.div>
   );
 };
 

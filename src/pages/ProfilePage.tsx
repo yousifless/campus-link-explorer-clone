@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/select";
 import { AvailabilityCalendar } from '@/components/profile/AvailabilityCalendar';
 import { InterestsModal } from '@/components/profile/InterestsModal';
-import LanguagesModal from '@/components/profile/LanguagesModal'; // Fixed: Changed from named import to default import
+import { LanguagesModal } from '@/components/profile/LanguagesModal';
 import { MeetupPreferences } from '@/components/profile/MeetupPreferences';
 import { useAuth } from '@/contexts/AuthContext';
 import UserBadges from '@/components/profile/UserBadges';
@@ -751,7 +751,6 @@ export const ProfilePage = () => {
                         
                         <LanguagesModal 
                           userLanguages={profileData?.languages} 
-                          onOpenChange={(open) => {}} // Add the missing prop
                           onSave={async (languages) => {
                             if (!userId) return;
                             try {

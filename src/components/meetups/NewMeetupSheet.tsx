@@ -25,7 +25,6 @@ import { useIcebreakers } from '@/hooks/use-icebreakers';
 import { profileToIcebreakerUser, IcebreakerResponse } from '@/utils/icebreaker/icebreaker-service';
 import { Card, CardContent } from '@/components/ui/card';
 import NearbyPlacesSelector from '@/components/shared/NearbyPlacesSelector';
-import { PlaceResult } from '@/types/google-maps';
 
 interface Location {
   placeId: string;
@@ -160,19 +159,9 @@ const NewMeetupSheet = ({ matchId, selectedUser, onClose, isOpen, onSuccess }: N
     loadOtherUserProfile();
   }, [selectedUser]);
 
-  // Fix the type mismatch between Location and PlaceResult
-  const handlePlaceSelected = (place: PlaceResult) => {
-    if (place.geometry?.location) {
-      const location = {
-        placeId: place.place_id || '',
-        name: place.name || '',
-        address: place.formatted_address || '',
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-      };
-      
-      setLocation(location);
-    }
+  const handlePlaceSelect = (location: Location) => {
+    setLocation(location);
+    setCurrentStep(2);
   };
 
   const handleNext = () => {
@@ -408,7 +397,7 @@ ${generatedIcebreakers.sharedTopic}` : '';
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Location</label>
                       <NearbyPlacesSelector
-                        onSelectPlace={handlePlaceSelected}
+                        onSelectPlace={handlePlaceSelect}
                         initialLocation={location}
                         showCafesOnly={false}
                       />
