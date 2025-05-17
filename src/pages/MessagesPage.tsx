@@ -1,256 +1,201 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import ConversationList from '@/components/messages/ConversationList';
-import ChatWindow from '../components/messages/ChatWindow';
-import { supabase } from '@/integrations/supabase/client';
-import { useLocation } from 'react-router-dom';
 
-export interface UserProfile {
-  id: string;
-  first_name: string;
-  last_name: string;
-  avatar_url: string;
-}
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { useConversations } from '@/contexts/ConversationContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Search, MessageSquare, Users, Clock, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
 
-export interface Conversation {
-  id: string;
-  other_user: UserProfile;
-  last_message: string;
-  last_message_time: string;
-}
-
-export interface Message {
-  id: string;
-  content: string;
-  sender_id: string;
-  created_at: string;
-  media_type?: string;
-  media_url?: string;
-  sender: UserProfile;
-}
-
-export default function MessagesPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selected, setSelected] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loadingConversations, setLoadingConversations] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const conversationsSubRef = useRef<any>(null);
-  const messagesSubRef = useRef<any>(null);
-  const location = useLocation();
-
-  // Fetch user ID and profile from Supabase auth
+const MessagesPage = () => {
+  const navigate = useNavigate();
+  const { conversations, loading } = useConversations();
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [filteredConversations, setFilteredConversations] = useState(conversations);
+  
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const id = data.user?.id || null;
-      setUserId(id);
-      if (id) {
-        supabase.from('profiles').select('id, first_name, last_name, avatar_url').eq('id', id).single().then(({ data }) => {
-          if (data) setUserProfile(data);
-        });
+    if (!conversations) return;
+    
+    const filtered = conversations.filter(conv => {
+      const otherUserId = conv.user1_id === user?.id ? conv.user2_id : conv.user1_id;
+      // Here, ideally we would search by the other user's name, but we need to fetch that data
+      return otherUserId.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+    
+    setFilteredConversations(filtered);
+  }, [searchTerm, conversations, user]);
+  
+  const handleConversationClick = (conversationId) => {
+    navigate(`/chat/${conversationId}`);
+  };
+  
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
       }
-    });
-  }, []);
-
-  // Fetch conversations for the current user
-  const fetchConversations = useCallback(async () => {
-    if (!userId) return;
-    setLoadingConversations(true);
-    try {
-      // Step 1: Fetch conversations (no joins)
-      const { data: convs, error } = await supabase
-        .from('conversations')
-        .select('id, match_id, created_at, updated_at')
-        .order('updated_at', { ascending: false });
-      if (error) throw error;
-      if (!convs) return;
-      // Step 2: Fetch matches for these conversations
-      const matchIds = convs.map((c: any) => c.match_id);
-      const { data: matches, error: matchError } = await supabase
-        .from('matches')
-        .select('id, user1_id, user2_id')
-        .in('id', matchIds);
-      if (matchError) throw matchError;
-      // Step 3: Collect all other user IDs
-      const otherUserIds = matches
-        .map((m: any) => (m.user1_id === userId ? m.user2_id : m.user1_id));
-      // Step 4: Fetch all needed profiles
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .in('id', otherUserIds);
-      if (profileError) throw profileError;
-      const profileMap = new Map();
-      (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
-      // Step 5: Map to Conversation[]
-      const mapped: Conversation[] = convs.map((c: any) => {
-        const match = matches.find((m: any) => m.id === c.match_id);
-        if (!match) return null;
-        const otherId = match.user1_id === userId ? match.user2_id : match.user1_id;
-        return {
-          id: c.id,
-          other_user: profileMap.get(otherId) || { id: otherId, first_name: '', last_name: '', avatar_url: '' },
-          last_message: '', // Optionally fetch last message separately if needed
-          last_message_time: '', // Optionally fetch last message time separately if needed
-        };
-      }).filter(Boolean);
-      setConversations(mapped);
-    } catch (err) {
-      setConversations([]);
-    } finally {
-      setLoadingConversations(false);
-    }
-  }, [userId]);
-
-  // Listen for new conversations in real time
-  useEffect(() => {
-    if (!userId) return;
-    fetchConversations();
-    if (conversationsSubRef.current) conversationsSubRef.current.unsubscribe();
-    conversationsSubRef.current = supabase
-      .channel('conversations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, fetchConversations)
-      .subscribe();
-    return () => {
-      if (conversationsSubRef.current) conversationsSubRef.current.unsubscribe();
-    };
-  }, [userId, fetchConversations]);
-
-  // Fetch messages for selected conversation
-  const fetchMessages = useCallback(async (conversationId: string) => {
-    setLoadingMessages(true);
-    try {
-      const { data: msgs, error } = await supabase
-        .from('messages')
-        .select(`
-          id, content, sender_id, created_at,
-          sender:profiles!messages_sender_id_fkey(id, first_name, last_name, avatar_url)
-        `)
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      // Map and filter messages to ensure sender is a valid UserProfile
-      const validMsgs = (msgs || []).map((m: any) => {
-        if (m.sender && m.sender.id) return m;
-        return null;
-      }).filter(Boolean) as Message[];
-      setMessages(validMsgs);
-    } catch (err) {
-      setMessages([]);
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, []);
-
-  // Listen for new messages in real time
-  useEffect(() => {
-    if (!selected) return;
-    fetchMessages(selected.id);
-    if (messagesSubRef.current) messagesSubRef.current.unsubscribe();
-    messagesSubRef.current = supabase
-      .channel('messages')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${selected.id}`
-      }, () => fetchMessages(selected.id))
-      .subscribe();
-    return () => {
-      if (messagesSubRef.current) messagesSubRef.current.unsubscribe();
-    };
-  }, [selected, fetchMessages]);
-
-  // Handle conversation selection
-  const handleSelect = (conv: Conversation) => {
-    setSelected(conv);
-    fetchMessages(conv.id);
-  };
-
-  // Handle sending a message
-  const handleSend = async (msg: string, mediaType?: string, mediaUrl?: string) => {
-    if (!selected || !userId || !userProfile) return;
-    // Optimistic update
-    const optimistic: Message = {
-      id: `temp-${Date.now()}`,
-      content: msg,
-      sender_id: userId,
-      created_at: new Date().toISOString(),
-      media_type: mediaType,
-      media_url: mediaUrl,
-      sender: userProfile,
-    };
-    setMessages(prev => [...prev, optimistic]);
-    // Send to Supabase
-    const payload = {
-      content: msg,
-      conversation_id: selected.id,
-      sender_id: userId,
-      created_at: new Date().toISOString(),
-      media_type: mediaType,
-      media_url: mediaUrl,
-    };
-    console.log('Sending message payload:', payload);
-    const { error, data } = await supabase
-      .from('messages')
-      .insert(payload);
-    if (error) {
-      console.error('Error sending message:', error);
-      // Remove optimistic message on error
-      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
-      alert('Failed to send message: ' + error.message);
-    } else {
-      console.log('Message sent successfully:', data);
     }
   };
-
-  // Helper to get query param
-  function getConversationIdFromQuery() {
-    const params = new URLSearchParams(location.search);
-    return params.get('conversationId');
-  }
-
-  // Auto-select conversation if conversationId is in URL
-  useEffect(() => {
-    const conversationId = getConversationIdFromQuery();
-    if (conversationId && conversations.length > 0) {
-      const found = conversations.find(c => c.id === conversationId);
-      if (found) setSelected(found);
+  
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15
+      }
     }
-  }, [location.search, conversations]);
-
-  useEffect(() => {
-    // Debug: Check Supabase session and conversations access
-    supabase.auth.getSession().then((session) => {
-      console.log('Supabase session:', session);
-    });
-    supabase.from('conversations').select('*').then((result) => {
-      console.log('Conversations table access:', result);
-    });
-  }, []);
+  };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-[#FFFBF0] min-h-0">
-      {/* Sidebar */}
-      <aside className="w-80 border-r border-[#FACC15]/30 bg-[#FFFFFF]">
-        <ConversationList
-          conversations={conversations}
-          loading={loadingConversations}
-          selectedId={selected?.id}
-          onSelect={handleSelect}
-        />
-      </aside>
-      {/* Chat Window */}
-      <main className="flex-1 flex flex-col min-h-0">
-        <ChatWindow
-          conversation={selected}
-          messages={messages}
-          loading={loadingMessages}
-          onSend={handleSend}
-          userId={userId}
-        />
-      </main>
+    <div className="flex flex-col h-full min-h-[80vh]">
+      {/* Header */}
+      <div className="p-4 sm:p-6 bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Messages</h1>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+            <MessageSquare className="h-5 w-5" />
+          </Button>
+        </div>
+        
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+          <Input
+            placeholder="Search conversations..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 bg-white/10 border-0 text-white placeholder-white/70 focus:ring-2 focus:ring-white/30"
+          />
+        </div>
+      </div>
+      
+      {/* Tabs */}
+      <Tabs defaultValue="all" className="mt-2">
+        <div className="px-4">
+          <TabsList className="w-full grid grid-cols-3 bg-gray-100/80 p-1">
+            <TabsTrigger value="all" className="data-[state=active]:bg-white">
+              <Users className="h-4 w-4 mr-1" />
+              All
+            </TabsTrigger>
+            <TabsTrigger value="unread" className="data-[state=active]:bg-white">
+              <MessageSquare className="h-4 w-4 mr-1" />
+              Unread
+            </TabsTrigger>
+            <TabsTrigger value="starred" className="data-[state=active]:bg-white">
+              <Star className="h-4 w-4 mr-1" />
+              Starred
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        
+        <TabsContent value="all" className="mt-2 px-4 pb-4">
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center space-x-4 p-3 rounded-lg">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-1/4" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              ))}
+            </div>
+          ) : filteredConversations.length > 0 ? (
+            <motion.div 
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="space-y-1"
+            >
+              {filteredConversations.map((conversation) => {
+                const otherUserId = conversation.user1_id === user?.id ? conversation.user2_id : conversation.user1_id;
+                const formattedTime = formatDistanceToNow(new Date(conversation.updated_at || conversation.created_at), { addSuffix: true });
+                
+                // We don't have all the details about the other user, so we show a placeholder
+                return (
+                  <motion.div 
+                    key={conversation.id}
+                    variants={itemVariants}
+                    whileHover={{ scale: 1.01, backgroundColor: 'rgba(0,0,0,0.02)' }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => handleConversationClick(conversation.id)}
+                    className="flex items-center p-3 rounded-lg cursor-pointer border border-gray-100 bg-white shadow-sm"
+                  >
+                    <Avatar className="h-12 w-12 mr-4 border border-gray-200">
+                      <AvatarFallback className="bg-gradient-to-br from-purple-400 to-indigo-500 text-white">
+                        {otherUserId.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-medium text-gray-900 truncate">User {otherUserId.substring(0, 5)}</h3>
+                        <span className="text-xs text-gray-500 flex items-center">
+                          <Clock className="h-3 w-3 mr-1 inline" />
+                          {formattedTime}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 truncate">Start a conversation...</p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+              <div className="bg-purple-100 p-4 rounded-full mb-4">
+                <MessageSquare className="h-8 w-8 text-purple-500" />
+              </div>
+              <h3 className="text-xl font-medium text-gray-900 mb-1">No conversations yet</h3>
+              <p className="text-gray-500 mb-4">Connect with other students to start chatting!</p>
+              <Button 
+                onClick={() => navigate('/matches')}
+                className="bg-gradient-to-r from-violet-500 to-purple-600"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Find Connections
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="unread" className="mt-0 px-4 pb-4">
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="bg-blue-100 p-4 rounded-full mb-4">
+              <MessageSquare className="h-8 w-8 text-blue-500" />
+            </div>
+            <h3 className="text-xl font-medium text-gray-900 mb-1">No unread messages</h3>
+            <p className="text-gray-500">You're all caught up!</p>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="starred" className="mt-0 px-4 pb-4">
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="bg-amber-100 p-4 rounded-full mb-4">
+              <Star className="h-8 w-8 text-amber-500" />
+            </div>
+            <h3 className="text-xl font-medium text-gray-900 mb-1">No starred conversations</h3>
+            <p className="text-gray-500 mb-4">Star important conversations to find them easily</p>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
-} 
+};
+
+export default MessagesPage;

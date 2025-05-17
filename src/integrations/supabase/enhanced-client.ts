@@ -1,134 +1,138 @@
-import { createClient } from '@supabase/supabase-js';
+
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from './types';
 
-// Use environment variables if available
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://gdkvqvodqbzunzwfvcgh.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdka3Zxdm9kcWJ6dW56d2Z2Y2doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwOTMwMjEsImV4cCI6MjA1OTY2OTAyMX0.V1YctsUhIOpnvKYdCQVX9n4EBBVxQito7tLDeEO0gYs';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Log configuration for debugging (remove in production)
-console.log("Supabase URL (enhanced-client.ts):", supabaseUrl);
-console.log("Supabase key defined (enhanced-client.ts):", !!supabaseKey);
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing Supabase environment variables');
+}
 
-// Track pending requests to manage concurrency
-let pendingRequests = 0;
-const MAX_CONCURRENT_REQUESTS = 2;
-const requestQueue: Array<() => Promise<void>> = [];
-const requestDelays = new Map<string, number>();
+// Create a single supabase client for interacting with your database
+const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const processingRequest = async () => {
-  if (pendingRequests >= MAX_CONCURRENT_REQUESTS || requestQueue.length === 0) {
-    return;
+// Enhanced Supabase client with typed methods
+class EnhancedSupabaseClient {
+  private client: SupabaseClient<Database>;
+
+  constructor(client: SupabaseClient<Database>) {
+    this.client = client;
   }
-  
-  const nextRequest = requestQueue.shift();
-  if (nextRequest) {
-    pendingRequests++;
+
+  get auth() {
+    return this.client.auth;
+  }
+
+  get storage() {
+    return this.client.storage;
+  }
+
+  get rpc() {
+    return this.client.rpc;
+  }
+
+  // Typed methods for common tables
+  async fetchUserProfile(userId: string) {
+    return this.client
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+  }
+
+  async updateUserProfile(userId: string, data: Partial<Database['public']['Tables']['profiles']['Update']>) {
+    return this.client
+      .from('profiles')
+      .update(data)
+      .eq('id', userId);
+  }
+
+  async fetchUserMatches(userId: string) {
+    return this.client
+      .from('matches')
+      .select(`
+        *,
+        profiles_user1: profiles!matches_user1_id_fkey(*),
+        profiles_user2: profiles!matches_user2_id_fkey(*)
+      `)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+  }
+
+  async updateMatch(matchId: string, data: Partial<Database['public']['Tables']['matches']['Update']>) {
+    return this.client
+      .from('matches')
+      .update(data)
+      .eq('id', matchId);
+  }
+
+  async fetchConversations(userId: string) {
+    return this.client
+      .from('conversations')
+      .select(`
+        *,
+        match:matches(*)
+      `)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .order('updated_at', { ascending: false });
+  }
+
+  async fetchMessages(conversationId: string) {
+    return this.client
+      .from('messages')
+      .select(`
+        *,
+        sender:profiles(*)
+      `)
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+  }
+
+  async sendMessage(
+    conversationId: string, 
+    senderId: string, 
+    content: string
+  ) {
+    return this.client
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        content,
+        is_read: false
+      })
+      .select()
+      .single();
+  }
+
+  async fetchUserNotifications(userId: string) {
+    return this.client
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+  }
+
+  // Fetch user personality traits
+  async fetchUserPersonalityTraits(userId: string) {
     try {
-      await nextRequest();
+      return this.client
+        .from('user_personality_traits')
+        .select(`
+          *,
+          trait:personality_traits(*)
+        `)
+        .eq('user_id', userId);
     } catch (error) {
-      console.error("Request error:", error);
-    } finally {
-      pendingRequests--;
-      setTimeout(processingRequest, 800);
+      console.error('Error fetching personality traits:', error);
+      return { data: null, error };
     }
   }
-};
+}
 
-// Custom fetch implementation with improved request throttling and queuing
-const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  return new Promise((resolve, reject) => {
-    const executeRequest = async () => {
-      // Get the endpoint from the URL
-      let endpoint: string;
-      if (typeof input === 'string') {
-        endpoint = new URL(input).pathname;
-      } else if (input instanceof URL) {
-        endpoint = input.pathname;
-      } else {
-        endpoint = new URL(input.url).pathname;
-      }
-      
-      // Calculate delay based on endpoint and previous requests
-      const baseDelay = requestDelays.get(endpoint) || 500;
-      const randomFactor = Math.random() * 0.5 + 0.75; // Random factor between 0.75 and 1.25
-      const delay = Math.floor(baseDelay * randomFactor);
-      
-      // Update the delay for this endpoint (increase if it's a frequently used endpoint)
-      requestDelays.set(endpoint, Math.min(baseDelay * 1.2, 2000));
-      
-      // Apply the delay
-      await new Promise(r => setTimeout(r, delay));
-      
-      try {
-        const response = await fetch(input, init);
-        
-        // If the request was successful, gradually decrease the delay
-        if (response.ok) {
-          const currentDelay = requestDelays.get(endpoint) || 500;
-          requestDelays.set(endpoint, Math.max(currentDelay * 0.9, 300));
-        }
-        
-        resolve(response);
-      } catch (error) {
-        console.error('Fetch error:', error);
-        reject(error);
-      }
-    };
+// Create an enhanced client instance
+const enhancedSupabase = new EnhancedSupabaseClient(supabase);
 
-    // Add request to queue
-    requestQueue.push(executeRequest);
-    
-    // Try to process the queue
-    processingRequest();
-  });
-};
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
-  global: {
-    fetch: customFetch
-  },
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-});
-
-// Enhanced profiles table type
-export type ProfileRow = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  nickname: string | null;
-  university: string | null;
-  campus_id: string | null;
-  major_id: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  student_type: 'international' | 'local' | null;
-  year_of_study: number | null;
-  nationality: string | null;
-  is_verified: boolean;
-  cultural_insight: string | null;
-};
-
-// Database helper methods
-export const db = {
-  profiles: () => supabase.from('profiles'),
-  matches: () => supabase.from('matches'),
-  conversations: () => supabase.from('conversations'),
-  messages: () => supabase.from('messages'),
-  notifications: () => supabase.from('notifications'),
-  userInterests: () => supabase.from('user_interests'),
-  userLanguages: () => supabase.from('user_languages'),
-  universities: () => supabase.from('universities'),
-  campuses: () => supabase.from('campuses'),
-  majors: () => supabase.from('majors'),
-  interests: () => supabase.from('interests'),
-  languages: () => supabase.from('languages'),
-  personalityTraits: () => supabase.from('personality_traits'),
-  // For now, we'll use the generic version of the from method for tables that aren't in the types yet
-  deals: () => supabase.from('deals' as any),
-  dealReviews: () => supabase.from('deal_reviews' as any),
-  meetups: () => supabase.from('meetups' as any)
-};
+export { enhancedSupabase };
+export default enhancedSupabase;

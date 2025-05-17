@@ -1,172 +1,171 @@
+
 import { useState, useEffect } from 'react';
-import { supabase } from '@/utils/supabase';
-import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { ReferralStats, ReferralReward, DiscountCode } from '@/types/referrals';
+import { DiscountCode, ReferralBadge, ReferralStats } from '@/types/referrals';
 
 export const useReferrals = () => {
   const { user } = useAuth();
-  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
-  const [referralCode, setReferralCode] = useState<string | null>(null);
-  const [referralLink, setReferralLink] = useState<string | null>(null);
-  const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
   
-  // Fetch referral data
-  useEffect(() => {
+  const [referralCode, setReferralCode] = useState<string>('');
+  const [referralCount, setReferralCount] = useState<number>(0);
+  const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
+  const [badges, setBadges] = useState<ReferralBadge[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [stats, setStats] = useState<ReferralStats>({
+    referral_count: 0,
+    total_points: 0,
+    badges: [],
+    next_badge: null,
+    referrals: []
+  });
+
+  const refreshData = async () => {
     if (!user) return;
     
-    const fetchReferralData = async () => {
-      setLoading(true);
-      try {
-        // Get user's referral code
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('referral_code')
-          .eq('id', user.id)
-          .single();
-          
-        if (userError) throw userError;
-        
-        setReferralCode(userData.referral_code);
-        setReferralLink(`${window.location.origin}/signup?ref=${userData.referral_code}`);
-        
-        // Get referral stats
-        const { data: statsData, error: statsError } = await supabase.rpc(
-          'get_referral_stats',
-          { user_id: user.id }
-        );
-        
-        if (statsError) throw statsError;
-        
-        setReferralStats(statsData as ReferralStats);
-        
-        // Get active discount codes
-        const { data: rewardsData, error: rewardsError } = await supabase
-          .from('referral_rewards')
-          .select('discount_code, discount_amount, discount_used, expires_at')
-          .or(`referrer_id.eq.${user.id},referee_id.eq.${user.id}`)
-          .order('created_at', { ascending: false });
-          
-        if (rewardsError) throw rewardsError;
-        
-        const codes: DiscountCode[] = rewardsData.map(reward => ({
-          code: reward.discount_code,
-          amount: reward.discount_amount,
-          expires_at: reward.expires_at,
-          used: reward.discount_used
+    setLoading(true);
+    
+    try {
+      // Get referral code
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('referral_code')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) throw profileError;
+      
+      if (profileData?.referral_code) {
+        setReferralCode(profileData.referral_code);
+      }
+      
+      // Get referral count
+      const { data: referralsData, error: referralsError } = await supabase
+        .from('referral_rewards')
+        .select('id')
+        .eq('referrer_id', user.id);
+      
+      if (referralsError) throw referralsError;
+      
+      setReferralCount(referralsData?.length || 0);
+      
+      // Get discount codes
+      const { data: codesData, error: codesError } = await supabase
+        .from('referral_rewards')
+        .select(`
+          discount_code,
+          discount_amount,
+          discount_used,
+          expires_at
+        `)
+        .eq('referrer_id', user.id);
+      
+      if (codesError) throw codesError;
+      
+      if (codesData) {
+        const codes = codesData.map(item => ({
+          code: item.discount_code,
+          amount: item.discount_amount,
+          expires_at: item.expires_at,
+          used: item.discount_used,
         }));
         
         setDiscountCodes(codes);
-      } catch (error) {
-        console.error('Error fetching referral data:', error);
-        toast.error('Failed to load referral data');
-      } finally {
-        setLoading(false);
       }
-    };
-    
-    fetchReferralData();
-  }, [user]);
-  
-  // Share referral link
-  const shareReferralLink = async () => {
-    if (!referralLink) return;
-    
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Join me on CampusLink!',
-          text: 'I\'m using CampusLink to connect with other students on campus. Use my referral link to sign up and get a discount!',
-          url: referralLink
-        });
-      } else {
-        await navigator.clipboard.writeText(referralLink);
-        toast.success('Referral link copied to clipboard!');
+      
+      // Get earned badges
+      const { data: badgesData, error: badgesError } = await supabase
+        .from('user_badges')
+        .select(`
+          badge: badge_id (
+            id,
+            name,
+            description,
+            required_referrals,
+            image_url
+          ),
+          earned_at
+        `)
+        .eq('user_id', user.id);
+      
+      if (badgesError) throw badgesError;
+      
+      if (badgesData) {
+        const formattedBadges = badgesData.map(item => ({
+          ...item.badge,
+          earned_at: item.earned_at
+        }));
+        
+        setBadges(formattedBadges);
+      }
+      
+      // Get all referral stats using RPC instead of a direct call
+      const { data: statsData, error: statsError } = await supabase
+        .rpc('get_user_referral_stats', { user_id: user.id });
+      
+      if (statsError) {
+        console.error('Error fetching referral stats:', statsError);
+      } else if (statsData) {
+        setStats(statsData as ReferralStats);
       }
     } catch (error) {
-      console.error('Error sharing:', error);
-      toast.error('Failed to share referral link');
+      console.error('Error refreshing referral data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load referral data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
   
-  // Copy referral code to clipboard
-  const copyReferralCode = async () => {
-    if (!referralCode) return;
+  const applyReferralCode = async (code: string) => {
+    if (!user || !code) return { success: false };
     
-    try {
-      await navigator.clipboard.writeText(referralCode);
-      toast.success('Referral code copied to clipboard!');
-    } catch (error) {
-      console.error('Error copying code:', error);
-      toast.error('Failed to copy referral code');
-    }
-  };
-  
-  // Validate a discount code
-  const validateDiscountCode = async (code: string): Promise<number | null> => {
     try {
       const { data, error } = await supabase
-        .from('referral_rewards')
-        .select('discount_amount, discount_used, expires_at')
-        .eq('discount_code', code)
-        .single();
-        
+        .rpc('apply_referral_code', { 
+          p_referee_id: user.id, 
+          p_referral_code: code 
+        });
+      
       if (error) throw error;
       
-      // Check if code is valid (not used and not expired)
-      if (data.discount_used) {
-        toast.error('This discount code has already been used');
-        return null;
-      }
+      toast({
+        title: "Success",
+        description: "Referral code applied successfully!"
+      });
       
-      if (new Date(data.expires_at) < new Date()) {
-        toast.error('This discount code has expired');
-        return null;
-      }
-      
-      return data.discount_amount;
-    } catch (error) {
-      console.error('Error validating discount code:', error);
-      toast.error('Invalid discount code');
-      return null;
+      await refreshData();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error applying referral code:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to apply referral code",
+        variant: "destructive"
+      });
+      return { success: false };
     }
   };
   
-  // Apply a discount code
-  const applyDiscountCode = async (code: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('referral_rewards')
-        .update({ discount_used: true })
-        .eq('discount_code', code);
-        
-      if (error) throw error;
-      
-      // Update local state
-      setDiscountCodes(prev => 
-        prev.map(c => 
-          c.code === code ? { ...c, used: true } : c
-        )
-      );
-      
-      return true;
-    } catch (error) {
-      console.error('Error applying discount code:', error);
-      toast.error('Failed to apply discount code');
-      return false;
+  useEffect(() => {
+    if (user) {
+      refreshData();
     }
-  };
+  }, [user]);
   
   return {
-    referralStats,
     referralCode,
-    referralLink,
+    referralCount,
     discountCodes,
+    badges,
     loading,
-    shareReferralLink,
-    copyReferralCode,
-    validateDiscountCode,
-    applyDiscountCode
+    stats,
+    applyReferralCode,
+    refreshData
   };
-}; 
+};

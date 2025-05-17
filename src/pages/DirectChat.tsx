@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useConversation } from '@/contexts/ConversationContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { useConversations } from '@/contexts/ConversationContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +12,6 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import ScheduleMeetupButton from '@/components/meetups/ScheduleMeetupButton';
 import ChatIcebreaker from '@/components/icebreaker/ChatIcebreaker';
-import { useAuth } from '@/contexts/AuthContext';
 
 // Fix type issues with CSS properties
 const chatContainerStyle: React.CSSProperties = {
@@ -41,14 +42,14 @@ const messagesContainerStyle: React.CSSProperties = {
 
 const DirectChat: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { getConversation, sendMessage, loadMessages, loading } = useConversation();
   const { user } = useAuth();
+  const { getConversations, sendMessage, loadMessages, loading } = useConversations();
   const [message, setMessage] = useState('');
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
   const [showMeetupButton, setShowMeetupButton] = useState(true);
+  const messageInputRef = useRef(null);
 
   useEffect(() => {
     if (id) {
@@ -61,7 +62,7 @@ const DirectChat: React.FC = () => {
     if (!id) return;
     
     try {
-      const conv = await getConversation(id);
+      const conv = await getConversations(id);
       setConversation(conv);
     } catch (error) {
       console.error('Error loading conversation:', error);

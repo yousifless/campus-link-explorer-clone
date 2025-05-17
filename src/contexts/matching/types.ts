@@ -1,78 +1,49 @@
-import { ProfileType, SuggestedMatchType } from '@/types/database';
 
-export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'unmatched';
+export interface MatchUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  avatar_url: string | null;
+  university?: string | null;
+  student_type?: string | null;
+  major?: string | null;
+  bio?: string | null;
+  nationality?: string | null;
+  is_verified?: boolean;
+  common_interests?: number;
+  common_languages?: number;
+  match_score?: number;
+}
 
 export interface MatchType {
   id: string;
-  created_at: string;
-  updated_at: string;
   user1_id: string;
   user2_id: string;
-  status: MatchStatus;
-  initiator_id?: string; // Made optional since it may not be present in all cases
-  user1_status: string;
-  user2_status: string;
-  user1?: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    university: string | null;
-    student_type: string | null;
-    major: string | null;
-    bio: string | null;
-    nationality: string | null;
-    is_verified: boolean;
-  };
-  user2?: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    university: string | null;
-    student_type: string | null;
-    major: string | null;
-    bio: string | null;
-    nationality: string | null;
-    is_verified: boolean;
-  };
-  otherUser: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    nickname?: string | null;
-    avatar_url: string | null;
-    university_id?: string | null;
-    campus_id?: string | null;
-    major_id?: string | null;
-    bio: string | null;
-    nationality: string | null;
-    year_of_study?: number | null;
-    student_type: string | null;
-    cultural_insight?: string | null;
-    location?: string | null;
-    is_verified: boolean;
-    created_at?: string;
-    updated_at?: string;
-    interests?: string[];
-    languages?: { id: string; proficiency: string }[];
-    common_interests: number;
-    common_languages: number;
-    match_score: number;
-  };
+  status: 'pending' | 'accepted' | 'declined' | 'unmatch';
+  user1_status?: string;
+  user2_status?: string;
+  created_at: string;
+  updated_at?: string;
+  initiator_id?: string;
+  otherUser: MatchUser;
 }
 
-export interface MatchingContextType {
+export interface MatchingContextProps {
   matches: MatchType[];
-  possibleMatches: MatchType[];
-  myPendingMatches: MatchType[];
-  theirPendingMatches: MatchType[];
-  suggestedMatches?: SuggestedMatchType[]; // Using the proper type from database.ts
+  pendingMatches: MatchType[];
+  acceptedMatches: MatchType[];
   loading: boolean;
+  error: Error | null;
   fetchMatches: () => Promise<void>;
-  fetchSuggestedMatches?: () => Promise<void>;
   acceptMatch: (matchId: string) => Promise<void>;
-  rejectMatch: (matchId: string) => Promise<void>;
-  updateMatchStatus: (matchId: string, status: MatchStatus) => Promise<void>;
-  createMatch: (userId: string) => Promise<void>;
+  declineMatch: (matchId: string) => Promise<void>;
+  unmatchUser: (matchId: string) => Promise<void>;
+  getMatchByUserId: (userId: string) => MatchType | undefined;
+}
+
+export interface CoffeeMeetupLocation {
+  name: string;
+  address: string;
+  lat?: number;
+  lng?: number;
 }
