@@ -42,17 +42,17 @@ export interface MatchType {
 export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'unmatched';
 
 export interface MatchingContextType {
-  matches: Match[];
-  pendingMatches: Match[];
-  acceptedMatches: Match[];
+  matches: MatchType[];
+  pendingMatches: MatchType[];
+  acceptedMatches: MatchType[];
   loading: boolean;
   error: Error | null;
   fetchMatches: () => Promise<void>;
   acceptMatch: (matchId: string) => Promise<void>;
   rejectMatch: (matchId: string) => Promise<void>;
   unmatchUser: (matchId: string) => Promise<void>;
-  getMatchById: (matchId: string) => Match | undefined;
-  getMatchByUserId: (userId: string) => Match | undefined;
+  getMatchById: (matchId: string) => MatchType | undefined;
+  getMatchByUserId: (userId: string) => MatchType | undefined;
 }
 
 export interface ConversationType {
@@ -104,5 +104,12 @@ export interface CoffeeMeetup {
   receiver?: MatchUser;
 }
 
-// Re-export existing types to maintain compatibility
-export { Match } from './types';
+// Message type for conversations
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  is_read: boolean;
+}

@@ -1,9 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
-import { Conversation, Message } from '../types/database';
+import { supabase } from '@/integrations/supabase/client';
+import { ConversationType, Message } from './matching/types';
 import { useAuth } from './AuthContext';
-import { ConversationType } from './matching/types';
 
 interface ConversationContextType {
   conversations: ConversationType[];

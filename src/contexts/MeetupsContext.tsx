@@ -1,15 +1,16 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
+import { CoffeeMeetup } from './matching/types';
 import { useAuth } from './AuthContext';
-import { CoffeeMeetup, CoffeeMeetupLocation } from './matching/types';
+import { transformMeetupData } from '../utils/meetupTransformers';
 
 interface MeetupsContextType {
   meetups: CoffeeMeetup[];
-  fetchMeetups: () => Promise<void>;
-  acceptMeetup: (meetupId: string) => Promise<void>;
-  declineMeetup: (meetupId: string) => Promise<void>;
-  fetchMeetupById: (meetupId: string) => Promise<CoffeeMeetup | null>;
   loading: boolean;
+  fetchMeetups: () => Promise<void>;
+  sendMeetupProposal: (meetup: Partial<CoffeeMeetup>) => Promise<CoffeeMeetup | null>;
+  updateMeetupStatus: (meetupId: string, status: string) => Promise<boolean>;
 }
 
 const MeetupsContext = createContext<MeetupsContextType | undefined>(undefined);
@@ -21,95 +22,91 @@ export const MeetupsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const fetchMeetups = async () => {
     if (!user) return;
+    
     setLoading(true);
     const { data, error } = await supabase
       .from('coffee_meetups')
-      .select('*')
+      .select('*, sender:sender_id(id, first_name, last_name, avatar_url), receiver:receiver_id(id, first_name, last_name, avatar_url)')
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order('date', { ascending: false });
-      
+    
     if (!error && data) {
-      // Transform the data to match CoffeeMeetup type
-      const transformedMeetups: CoffeeMeetup[] = data.map(meetup => ({
-        id: meetup.id,
-        match_id: meetup.match_id,
-        sender_id: meetup.sender_id,
-        receiver_id: meetup.receiver_id,
-        date: meetup.date,
-        status: meetup.status as 'pending' | 'confirmed' | 'declined' | 'cancelled',
-        created_at: meetup.created_at,
-        updated_at: meetup.updated_at,
-        conversation_starter: meetup.conversation_starter,
-        additional_notes: meetup.additional_notes,
-        // Add the location object that combines the separate properties
-        location: {
-          name: meetup.location_name,
-          address: meetup.location_address,
-          lat: meetup.location_lat,
-          lng: meetup.location_lng
-        },
-        // Keep original properties for backward compatibility
-        location_name: meetup.location_name,
-        location_address: meetup.location_address,
-        location_lat: meetup.location_lat,
-        location_lng: meetup.location_lng
-      }));
+      // Transform the raw data into CoffeeMeetup type with proper location object
+      const transformedMeetups = data.map(meetup => transformMeetupData(meetup));
       setMeetups(transformedMeetups);
     }
+    
     setLoading(false);
   };
 
-  const acceptMeetup = async (meetupId: string) => {
-    await supabase.from('coffee_meetups').update({ status: 'confirmed' }).eq('id', meetupId);
-    fetchMeetups();
-  };
-
-  const declineMeetup = async (meetupId: string) => {
-    await supabase.from('coffee_meetups').update({ status: 'cancelled' }).eq('id', meetupId);
-    fetchMeetups();
-  };
-
-  const fetchMeetupById = async (meetupId: string): Promise<CoffeeMeetup | null> => {
+  // Add a new coffee meetup proposal
+  const sendMeetupProposal = async (meetup: Partial<CoffeeMeetup>): Promise<CoffeeMeetup | null> => {
+    if (!user) return null;
+    
+    // Prepare the meetup data for DB insertion
     const { data, error } = await supabase
       .from('coffee_meetups')
-      .select('*')
-      .eq('id', meetupId)
+      .insert({
+        match_id: meetup.match_id,
+        sender_id: user.id,
+        receiver_id: meetup.receiver_id,
+        date: meetup.date,
+        location_name: meetup.location?.name || meetup.location_name,
+        location_address: meetup.location?.address || meetup.location_address,
+        location_lat: meetup.location?.lat || meetup.location_lat,
+        location_lng: meetup.location?.lng || meetup.location_lng,
+        conversation_starter: meetup.conversation_starter,
+        additional_notes: meetup.additional_notes,
+        status: 'pending'
+      })
+      .select()
       .single();
-      
-    if (!error && data) {
-      return {
-        id: data.id,
-        match_id: data.match_id,
-        sender_id: data.sender_id,
-        receiver_id: data.receiver_id,
-        date: data.date,
-        status: data.status as 'pending' | 'confirmed' | 'declined' | 'cancelled',
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        conversation_starter: data.conversation_starter,
-        additional_notes: data.additional_notes,
-        location: {
-          name: data.location_name,
-          address: data.location_address,
-          lat: data.location_lat,
-          lng: data.location_lng
-        },
-        // Keep original properties for backward compatibility
-        location_name: data.location_name,
-        location_address: data.location_address,
-        location_lat: data.location_lat,
-        location_lng: data.location_lng
-      };
+    
+    if (error) {
+      console.error("Error sending meetup proposal:", error);
+      return null;
     }
-    return null;
+    
+    // Transform and return the new meetup
+    return transformMeetupData(data);
+  };
+
+  // Update a meetup status (confirm, decline, etc)
+  const updateMeetupStatus = async (meetupId: string, status: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('coffee_meetups')
+      .update({ status })
+      .eq('id', meetupId);
+    
+    if (error) {
+      console.error("Error updating meetup status:", error);
+      return false;
+    }
+    
+    // Update local state
+    setMeetups(prevMeetups => 
+      prevMeetups.map(meetup => 
+        meetup.id === meetupId ? { ...meetup, status } : meetup
+      )
+    );
+    
+    return true;
   };
 
   useEffect(() => {
-    fetchMeetups();
+    if (user) {
+      fetchMeetups();
+    }
   }, [user]);
 
   return (
-    <MeetupsContext.Provider value={{ meetups, fetchMeetups, acceptMeetup, declineMeetup, fetchMeetupById, loading }}>
+    <MeetupsContext.Provider value={{ 
+      meetups, 
+      loading, 
+      fetchMeetups, 
+      sendMeetupProposal,
+      updateMeetupStatus
+    }}>
       {children}
     </MeetupsContext.Provider>
   );

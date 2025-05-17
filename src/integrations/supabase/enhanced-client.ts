@@ -83,6 +83,44 @@ const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promis
   });
 };
 
+/**
+ * Enhanced client with additional utilities for common Supabase operations
+ */
+export class EnhancedSupabaseClient {
+  private client: SupabaseClient;
+  
+  constructor(client: SupabaseClient) {
+    this.client = client;
+  }
+  
+  /**
+   * Fetch personality traits for a user
+   */
+  async fetchPersonalityTraits(userId: string) {
+    try {
+      // Instead of directly accessing personality_traits table which might not exist yet,
+      // let's use a safer approach by using an RPC function or checking if the table exists first
+      const { data: tableExists } = await this.client.rpc('check_table_exists', { 
+        table_name: 'personality_traits' 
+      });
+      
+      if (tableExists) {
+        const { data, error } = await this.client
+          .rpc('get_user_personality_traits', { user_id_param: userId });
+          
+        if (error) throw error;
+        return data || [];
+      }
+      
+      // Return empty array if table doesn't exist
+      return [];
+    } catch (error) {
+      console.error('Error fetching personality traits:', error);
+      return [];
+    }
+  }
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   global: {
     fetch: customFetch
