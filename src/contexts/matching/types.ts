@@ -12,16 +12,31 @@ export interface MatchUser {
   interests?: { id: string; name: string }[];
 }
 
-export interface Match {
+export interface MatchType {
   id: string;
   user1_id: string;
   user2_id: string;
   status: 'pending' | 'accepted' | 'rejected' | 'unmatched';
+  user1_status?: string;
+  user2_status?: string;
   created_at: string;
-  matched_at?: string | null;
-  match_score?: number;
-  user1: MatchUser;
-  user2: MatchUser;
+  updated_at: string;
+  initiator_id?: string;
+  otherUser: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string | null;
+    university?: string | null;
+    student_type?: string | null;
+    major?: string | null;
+    bio?: string | null;
+    nationality?: string | null;
+    is_verified?: boolean;
+    common_interests?: number;
+    common_languages?: number;
+    match_score?: number;
+  };
 }
 
 export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'unmatched';
@@ -88,3 +103,6 @@ export interface CoffeeMeetup {
   sender?: MatchUser;
   receiver?: MatchUser;
 }
+
+// Re-export existing types to maintain compatibility
+export { Match } from './types';
