@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import useReferrals from '@/hooks/useReferrals';
+import { useReferrals } from '@/hooks/useReferrals';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 

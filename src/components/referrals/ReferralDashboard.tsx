@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import useReferrals from '@/hooks/useReferrals';
+import { useReferrals } from '@/hooks/useReferrals';
 import { toast } from 'sonner';
 import { 
   Card, 

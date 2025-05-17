@@ -1,10 +1,10 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useConversations } from '@/contexts/ConversationContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Send } from 'lucide-react';
 import ChatWindow from '../components/messages/ChatWindow';

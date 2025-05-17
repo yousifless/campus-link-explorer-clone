@@ -68,12 +68,20 @@ export const useReferrals = () => {
       }
       
       // Fetch discount codes 
-      // Note: using RPC instead of direct table access for better type safety
-      const { data: discounts } = await supabase
-        .rpc('get_user_discount_codes', { user_id: user?.id });
+      const { data: discountsData } = await supabase
+        .from('referral_rewards')
+        .select('id, discount_code, discount_amount, expires_at, discount_used')
+        .eq('referrer_id', user?.id);
         
-      if (discounts) {
-        setDiscountCodes(discounts as DiscountCode[]);
+      if (discountsData) {
+        const formattedDiscounts: DiscountCode[] = discountsData.map(item => ({
+          id: item.id,
+          code: item.discount_code,
+          discount_amount: item.discount_amount,
+          expires_at: item.expires_at,
+          used: item.discount_used
+        }));
+        setDiscountCodes(formattedDiscounts);
       }
       
       // Fetch badges
@@ -104,14 +112,14 @@ export const useReferrals = () => {
     
     try {
       const { data, error } = await supabase
-        .rpc('apply_referral_code', { 
-          code: code.toUpperCase(),
-          user_id: user.id
-        });
+        .from('profiles')
+        .update({ referred_by: code })
+        .eq('id', user.id)
+        .select();
         
       if (error) throw error;
       
-      if (data === true) {
+      if (data) {
         toast.success('Referral code applied successfully!');
         return true;
       } else {
